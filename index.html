@@ -87,6 +87,7 @@ label{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:upper
 .brand p{margin:6px 0 0;color:var(--muted)}
 .lactions{display:flex;flex-wrap:wrap;gap:8px}
 .lib{padding-top:10px}
+.lib,.editor{padding-top:calc(12px + env(safe-area-inset-top,0px));padding-left:calc(16px + env(safe-area-inset-left,0px));padding-right:calc(16px + env(safe-area-inset-right,0px))}
 .topbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px}
 .sync.err i{background:#d64545}
 .topbar .btn{padding:5px 11px;font-size:.85rem}
@@ -250,7 +251,7 @@ textarea#eBody{font-family:var(--mono);font-size:16px;line-height:1.3;min-height
   <div class="lsearch"><input id="lSearch" type="search" placeholder="Search title, artist or words" aria-label="Search songs"></div>
   <div id="lSync" class="sync"><i></i><span>Checking storage…</span></div>
   <ul id="lList" class="songs"></ul>
-  <p class="ver">Magic Chord · version <span id="appVer">Nov 18, 3:20 pm</span> · swipe a song left to delete it</p>
+  <p class="ver">Magic Chord · version <span id="appVer">Nov 18, 3:25 pm</span> · swipe a song left to delete it</p>
 </section>
 
 <section id="editorView" class="editor" hidden>
