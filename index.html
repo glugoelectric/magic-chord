@@ -250,7 +250,7 @@ textarea#eBody{font-family:var(--mono);font-size:16px;line-height:1.3;min-height
   <div class="lsearch"><input id="lSearch" type="search" placeholder="Search title, artist or words" aria-label="Search songs"></div>
   <div id="lSync" class="sync"><i></i><span>Checking storage…</span></div>
   <ul id="lList" class="songs"></ul>
-  <p class="ver">Magic Chord · version Nov 18, 3:10 pm · swipe a song left to delete it</p>
+  <p class="ver">Magic Chord · version <span id="appVer">Nov 18, 3:15 pm</span> · swipe a song left to delete it</p>
 </section>
 
 <section id="editorView" class="editor" hidden>
@@ -1946,6 +1946,19 @@ document.fonts && document.fonts.addEventListener && document.fonts.addEventList
 measure();
 (document.fonts && document.fonts.ready || Promise.resolve()).then(() => { measure(); if (S.view === 'player' && S.cur) renderPlayer(); });
 
+/* Home Screen apps keep old copies: check for a newer version when the app opens or comes back */
+async function checkUpdate(){
+  try {
+    const r = await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' });
+    const m = (await r.text()).match(/id="appVer">([^<]+)</);
+    const mine = $('#appVer').textContent;
+    if (m && m[1] !== mine && sessionStorage.getItem('mc.upd') !== m[1] && S.view !== 'edit'){
+      sessionStorage.setItem('mc.upd', m[1]); location.reload();
+    }
+  } catch {}
+}
+checkUpdate();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 renderLib();
 setSync(false);
 $('#lSync span').textContent = 'Checking storage…';
