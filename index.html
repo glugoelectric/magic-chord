@@ -97,6 +97,13 @@ label{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:upper
 .songs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
 .song{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:13px 14px;cursor:pointer}
 .song:hover{border-color:var(--muted)}
+.swrow{position:relative;overflow:hidden;border-radius:10px;touch-action:pan-y}
+.swrow .song{position:relative;z-index:1;transition:transform .2s ease;will-change:transform}
+.swrow.dragging .song{transition:none}
+.swrow .sdel{visibility:hidden}
+.swrow.open .sdel,.swrow.dragging .sdel{visibility:visible}
+.swrow .sdel{position:absolute;right:0;top:0;bottom:0;width:96px;border:0;border-radius:10px;background:#d64545;color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
+.mcard .row .btn.dangerfill{background:#d64545;border-color:#d64545;color:#fff}
 .song .t{font-family:var(--display);font-weight:600;font-size:1.12rem;line-height:1.2}
 .song .a{color:var(--muted);font-size:.9rem}
 .song .txt{flex:1;min-width:0}
@@ -647,7 +654,8 @@ const setPrefs = (id, p) => LS.set('sb.p.' + id, p);
 
 function allSongs(){
   const own = S.songs;
-  const ex = EXAMPLES.filter(e => !own.some(s => s.fromExample === e.id));
+  const hid = LS.get('sb.hiddenEx', []);
+  const ex = EXAMPLES.filter(e => !own.some(s => s.fromExample === e.id) && !hid.includes(e.id));
   const t = x => (x.title && x.title !== 'Untitled' ? x.title : normalize(x.body || '').meta.title) || 'Untitled';
   return [...own, ...ex].sort((a, b) => t(a).localeCompare(t(b), undefined, { sensitivity: 'base' }));
 }
@@ -788,7 +796,7 @@ function renderLib(){
   const q = $('#lSearch').value.trim().toLowerCase();
   const list = allSongs().filter(s => !q || [s.title, s.artist, s.body].join(' ').toLowerCase().includes(q));
   $('#lList').innerHTML = list.length ? list.map(s => songView(s)).map(s => `
-    <li><button class="song" type="button" data-id="${esc(s.id)}">
+    <li class="swrow" data-id="${esc(s.id)}"><button class="sdel" type="button" data-del="${esc(s.id)}" tabindex="-1">Delete</button><button class="song" type="button" data-id="${esc(s.id)}">
       <span class="txt"><span class="t">${esc(s.title || 'Untitled')}${s.example ? '<span class="tag">Example</span>' : ''}</span>
       <span class="a">${esc(s.artist || '—')}</span></span>
       <span class="key">${esc(s.key || '')}</span>
@@ -974,7 +982,7 @@ function drawSheet(inner, d, trim){
   const H = IH - 4 - (trim || 0);
   const totalW = (cols, s) => cols.reduce((a, c) => a + c.w, 0) + (gapFor(s) * 2 + 1) * (cols.length - 1);
   const fitsOne = s => totalW(pack(d.blocks, s, H), s) <= W * 0.985;
-  let lo = 4, hi = 40;
+  let lo = 4, hi = 30;
   if (fitsOne(hi)) lo = hi;
   else for (let it = 0; it < 14; it++){ const mid = (lo + hi) / 2; if (fitsOne(mid)) lo = mid; else hi = mid; }
   let size = lo >= MIN_ONE_SHEET ? lo : 10;
@@ -1638,7 +1646,57 @@ function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = fals
 
 /* ---------- Wiring ---------- */
 $('#lSearch').addEventListener('input', renderLib);
-$('#lList').addEventListener('click', e => { const b = e.target.closest('.song'); if (b) openPlayer(b.dataset.id); });
+/* Swipe a song left to show Delete (finger on iPhone/iPad, two-finger swipe on the Mac trackpad) */
+let swOpen = null;
+const swSet = (row, x) => { row.querySelector('.song').style.transform = x ? `translateX(${x}px)` : ''; row.classList.toggle('open', !!x); };
+function swClose(){ if (swOpen){ swSet(swOpen, 0); swOpen = null; } }
+let sw = null;
+$('#lList').addEventListener('pointerdown', e => {
+  const row = e.target.closest('.swrow'); if (!row || e.target.closest('.sdel') || e.pointerType === 'mouse') return;
+  sw = { row, x0: e.clientX, y0: e.clientY, dx: 0, base: swOpen === row ? -96 : 0, on: false };
+});
+$('#lList').addEventListener('pointermove', e => {
+  if (!sw) return;
+  const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
+  if (!sw.on){ if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){ sw = null; return; } if (Math.abs(dx) < 8) return; sw.on = true; sw.row.classList.add('dragging'); if (swOpen && swOpen !== sw.row) swClose(); }
+  sw.dx = dx; swSet(sw.row, Math.max(-140, Math.min(0, sw.base + dx)));
+});
+const swEnd = () => {
+  if (!sw) return; const { row, on, dx, base } = sw; sw = null;
+  if (!on) return;
+  row.classList.remove('dragging'); row.dataset.justSwiped = '1'; setTimeout(() => delete row.dataset.justSwiped, 50);
+  if (base + dx < -48){ swSet(row, -96); swOpen = row; } else { swSet(row, 0); if (swOpen === row) swOpen = null; }
+};
+$('#lList').addEventListener('pointerup', swEnd); $('#lList').addEventListener('pointercancel', swEnd);
+let whT = null, whX = 0;
+$('#lList').addEventListener('wheel', e => {
+  const row = e.target.closest('.swrow'); if (!row || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  e.preventDefault(); whX += e.deltaX; clearTimeout(whT);
+  whT = setTimeout(() => { if (whX > 40){ swClose(); swSet(row, -96); swOpen = row; } else if (whX < -40 && swOpen === row) swClose(); whX = 0; }, 80);
+}, { passive: false });
+$('#lList').addEventListener('click', e => {
+  const del = e.target.closest('.sdel'); if (del){ confirmDelete(del.dataset.del); return; }
+  const b = e.target.closest('.song'); if (!b) return;
+  const row = b.closest('.swrow');
+  if (row && row.dataset.justSwiped) return;
+  if (swOpen){ swClose(); return; }
+  openPlayer(b.dataset.id);
+});
+function confirmDelete(id){
+  const s = findSong(id); if (!s) return;
+  const t = songView(s).title || 'Untitled';
+  modal(`<div class="mtop"><button class="btn mx" type="button" data-close aria-label="Close">✕</button><h3>Delete “${esc(t)}”?</h3></div>
+    <p>${s.example ? 'This hides the example song. It is not one of your songs.' : 'It will be removed from all your devices. A copy stays in today\'s backup in the “Magic Chord backups” folder in your Google Drive.'}</p>
+    <div class="row center"><button id="cdNo" class="btn" type="button" data-close>Keep it</button><button id="cdYes" class="btn dangerfill" type="button">Delete</button></div>`);
+  $('#mCard').dataset.sticky = '1';
+  $('#cdYes').onclick = async () => {
+    closeModal(); swOpen = null;
+    if (s.example){ LS.set('sb.hiddenEx', [...LS.get('sb.hiddenEx', []), id]); renderLib(); }
+    else await deleteSong(id);
+    toast('Deleted “' + t + '”.');
+  };
+}
+$('#modal').addEventListener('click', e => { if (e.target.closest('[data-close]')) swClose(); });
 $('#lNew').onclick = () => openEditor(null);
 $('#lGet').onclick = getChordsDialog;
 $('#lImport').onclick = () => pickFile('lib');
