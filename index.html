@@ -32,6 +32,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn:hover{border-color:var(--muted)}
 a.btn{color:var(--ink)}
 .btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+#eSave{min-width:9.5em;justify-content:center}
+#eSave.dirty{background:#e8a317;border-color:#e8a317;color:#111}
+#eSave.saved{background:var(--ok);border-color:var(--ok);color:#fff}
+#eSave.busy{opacity:.8}
 .btn.chordy{border-color:var(--chord);color:var(--chord)}
 .btn.danger{color:var(--chord)}
 .btn.back{background:var(--chord);border-color:var(--chord);color:var(--surface);font-size:1.02rem;padding:8px 15px}
@@ -656,7 +660,7 @@ async function saveSong(song){
     catch (e){ song.pending = true; toast('Saved on this device. Account sync failed: ' + (e.message || e.code || 'unknown')); }
   } else song.pending = true;
   LS.set('sb.songs', S.songs); renderLib();
-  if (D.url) drivePush([song]);
+  if (D.url) S.lastSync = drivePush([song]); else S.lastSync = null;
 }
 async function deleteSong(id){
   S.songs = S.songs.filter(s => s.id !== id); LS.set('sb.songs', S.songs);
@@ -743,9 +747,10 @@ function driveSync(){
 }
 function drivePush(list){
   D.busy = D.busy.then(async () => {
-    try { mergeIn(await driveCall(list)); driveStatus(true, 'Synced with your Google Drive — the same songs on your iPhone, iPad and Mac.'); }
-    catch (e){ driveStatus(false, 'Saved on this device. Drive sync failed — it tries again when you open the app.'); }
+    try { mergeIn(await driveCall(list)); driveStatus(true, 'Synced with your Google Drive — the same songs on your iPhone, iPad and Mac.'); D.lastPush = true; }
+    catch (e){ driveStatus(false, 'Saved on this device. Drive sync failed — it tries again when you open the app.'); D.lastPush = false; }
   });
+  return D.busy;
 }
 function driveInit(){
   const m = location.hash.match(/^#sync=(.+)$/);
@@ -1069,6 +1074,7 @@ function openEditor(id, preset){
   resetDelete(); status('');
   show('edit'); setTab(base && (song.body || '').trim() ? 'chords' : 'words'); updateUG();
   window.scrollTo(0, 0);
+  dirty = false; saveBtn(base ? 'saved' : '', base ? '✓ Saved' : 'Save');
   setTimeout(drawPreview, 50); fontsReady.then(drawPreview);
 }
 function readEditor(){
@@ -1147,7 +1153,7 @@ function renderCE(){
   }).join('') + '<span class="ce-probe" id="ceProbe">0000000000</span>';
 }
 function commitCE(){
-  schedulePv();
+  schedulePv(); markDirty();
   const ta = $('#eBody'), sx = $('#ePreview').scrollLeft, sy = window.scrollY;
   ta.value = ceSerialize(S.ce);
   renderCE();
@@ -1653,9 +1659,33 @@ $('#lBackup').onclick = () => {
 };
 $('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; if (f) handleFile(f); });
 
-$('#eBack').onclick = () => { show('lib'); renderLib(); };
-$('#eSave').onclick = async () => { const s = readEditor(); await saveSong(s); $('#eHead').textContent = 'Edit song'; $('#eDelete').hidden = false; $('#eBody').value = s.body; status('Saved.'); };
-$('#ePlay').onclick = async () => { const s = readEditor(); await saveSong(s); openPlayer(s.id); };
+/* Save button shows its state: orange "Save changes" when something changed, green "✓ Saved" when it's in Drive */
+let dirty = false;
+function saveBtn(state, text){
+  const b = $('#eSave'); b.classList.remove('dirty', 'saved', 'busy'); if (state) b.classList.add(state); b.textContent = text;
+}
+function markDirty(){ if (S.view !== 'edit') return; dirty = true; saveBtn('dirty', 'Save changes'); }
+async function doSave(){
+  const s = readEditor(); dirty = false;
+  saveBtn('busy', 'Saving…');
+  await saveSong(s);
+  $('#eHead').textContent = 'Edit song'; $('#eDelete').hidden = false;
+  if ($('#eBody').value !== s.body) $('#eBody').value = s.body;
+  if (S.lastSync){
+    saveBtn('busy', 'Saving to Drive…');
+    await S.lastSync;
+    if (dirty) return s;
+    if (D.lastPush){ saveBtn('saved', '✓ Saved'); status('Saved to your Google Drive.'); }
+    else { saveBtn('dirty', 'Saved here only'); status('Saved on this device, but Google Drive didn\'t answer. It tries again when you reopen the app.', true); }
+  } else { if (!dirty){ saveBtn('saved', '✓ Saved'); status('Saved.'); } }
+  return s;
+}
+['#eTitle','#eArtist','#eKey','#eCapo','#eNotes','#eBody'].forEach(id => $(id).addEventListener('input', markDirty));
+$('#eBack').onclick = async () => { if (dirty){ await doSave(); toast('Saved.'); } show('lib'); renderLib(); };
+$('#eSave').onclick = doSave;
+['#addTab','#cbUp','#cbDown','#cbMinor'].forEach(id => $(id).addEventListener('click', () => setTimeout(markDirty, 0)));
+document.querySelectorAll('#secBar [data-sec]').forEach(b => b.addEventListener('click', () => setTimeout(markDirty, 0)));
+$('#ePlay').onclick = async () => { const s = readEditor(); dirty = false; saveSong(s); openPlayer(s.id); };
 $('#eImport').onclick = () => pickFile('edit');
 $('#eExport').onclick = () => { const s = readEditor(); offerFile((s.title || 'song').replace(/[\\/:*?"<>|]+/g, '') + '.txt', songText(s), s.title || 'Song'); };
 $('#eAI').onclick = addChordsAI;
