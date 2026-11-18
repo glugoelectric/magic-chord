@@ -13,7 +13,7 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || u.origin !== self.location.origin) return;
   // network first (skipping the browser's 10-minute copy), saved copy only when offline
   e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => {
-    if (r.ok) caches.open(CACHE).then(c => c.put(e.request, r.clone()));
+    if (r.ok){ const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
     return r;
   }).catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
