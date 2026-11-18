@@ -1953,7 +1953,7 @@ async function checkUpdate(){
     const m = (await r.text()).match(/id="appVer">([^<]+)</);
     const mine = $('#appVer').textContent;
     if (m && m[1] !== mine && sessionStorage.getItem('mc.upd') !== m[1] && S.view !== 'edit'){
-      sessionStorage.setItem('mc.upd', m[1]); location.reload();
+      sessionStorage.setItem('mc.upd', m[1]); location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]));
     }
   } catch {}
 }
