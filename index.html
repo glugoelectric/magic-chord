@@ -1,0 +1,1848 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Magic Chord</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Magic Chord">
+<meta name="theme-color" content="#0e1116">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=Ubuntu+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: song library list → full-screen sheet that scales a whole song into columns on one screen (pages only if it truly can't fit) → editor with live preview */
+:root{
+  --bg:#edf0f4; --surface:#ffffff; --ink:#151b24; --muted:#5a6575; --line:#d3d9e2; --chord:#1f5fd6; --soft:#f5f7fa; --ok:#1d7a4c;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --ui:"Atkinson Hyperlegible",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:"Ubuntu Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1116; --surface:#161a21; --ink:#e7eaf0; --muted:#97a1af; --line:#2a313c; --chord:#6aa8ff; --soft:#1c212a; --ok:#4fc58a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --surface:#161a21; --ink:#e7eaf0; --muted:#97a1af; --line:#2a313c; --chord:#6aa8ff; --soft:#1c212a; --ok:#4fc58a; color-scheme:dark}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--chord);outline-offset:2px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 13px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+a.btn{color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn.chordy{border-color:var(--chord);color:var(--chord)}
+.btn.danger{color:var(--chord)}
+.btn.back{background:var(--chord);border-color:var(--chord);color:var(--surface);font-size:1.02rem;padding:8px 15px}
+.btn.back:hover{filter:brightness(1.08)}
+.pbar .btn.back{font-size:.8rem;padding:3px 10px}
+.chordbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:var(--soft);border:1px solid var(--line);border-bottom:0;border-radius:8px 8px 0 0;padding:6px 8px}
+.chordbar .cbname{font-family:var(--mono);font-weight:700;font-size:1.15rem;color:var(--chord);min-width:3.2em}
+.chordbar .cblbl{font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.chordbar .btn{padding:5px 11px}
+.chordbar .cbhint{font-size:.82rem;color:var(--muted)}
+.chordbar + .secbar + textarea{border-top-left-radius:0;border-top-right-radius:0}
+.etabs{display:flex;gap:0;margin:4px 0 10px;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:fit-content;max-width:100%}
+.etab{border:0;background:var(--surface);padding:9px 16px;font-weight:700;cursor:pointer;color:var(--muted)}
+.etab + .etab{border-left:1px solid var(--line)}
+.etab.on{background:var(--chord);color:var(--surface)}
+.editor[data-tab="words"] .cebox{display:none}
+.editor[data-tab="chords"] .wordsbox{display:none}
+.cebox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px 16px;min-width:0}
+.cehint{margin:0 0 10px;color:var(--muted);font-size:.9rem}
+.ce{position:relative;font-family:var(--mono);font-size:19px;line-height:1.25;overflow-x:auto;padding-bottom:6px;min-height:40vh}
+.ce-line{position:relative;cursor:pointer;padding:3px 4px;margin:0 -4px;border-radius:6px;width:max-content;min-width:calc(100% + 8px)}
+.ce-line:hover{background:var(--soft)}
+.ce-line.target{background:var(--soft);outline:1px dashed var(--chord)}
+.ce-crow{position:relative;height:1.3em;border-bottom:1px dashed var(--line);margin-bottom:2px}
+.ce-ly{white-space:pre;min-height:1.25em}
+.ce-none{font-family:var(--ui);font-size:.75em;color:var(--muted)}
+.ce-chip{position:absolute;top:0;font-weight:700;color:var(--chord);background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:0 2px;margin-left:-3px;line-height:1.2;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;z-index:1}
+.ce-chip.drag{cursor:grabbing;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.25);pointer-events:none}
+.ce-sec{font-family:var(--ui);font-weight:700;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:2px 0}
+.ce-gap{height:.9em}
+.ce-tab{white-space:pre;opacity:.9}
+.tab{white-space:pre;opacity:.88}
+.ce-probe{position:absolute;visibility:hidden;white-space:pre;top:0;left:0}
+.ce-empty{font-family:var(--ui);color:var(--muted);font-size:.95rem}
+.pk-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.pk-row .btn{min-width:2.9em;justify-content:center;font-family:var(--mono);font-size:1.05rem;padding:7px 9px}
+.btn.on{background:var(--chord);border-color:var(--chord);color:var(--surface)}
+.pk-prev{font-size:1rem;color:var(--muted)}
+.pk-prev b{font-family:var(--mono);font-size:1.6rem;color:var(--chord);margin-left:6px}
+.btn:disabled{opacity:.45;cursor:default}
+input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+label{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
+
+/* Library */
+.lib,.editor{max-width:1120px;margin:0 auto;padding:28px 16px 56px}
+.lhead{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+.brand h1{font-family:var(--display);font-weight:800;font-size:clamp(1.9rem,5vw,2.7rem);line-height:1;margin:0;letter-spacing:-.02em}
+.brand h1 span{color:var(--chord)}
+.brand p{margin:6px 0 0;color:var(--muted)}
+.lactions{display:flex;flex-wrap:wrap;gap:8px}
+.lib{padding-top:10px}
+.topbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px}
+.sync.err i{background:#d64545}
+.topbar .btn{padding:5px 11px;font-size:.85rem}
+.lsearch{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.sync{font-size:.85rem;color:var(--muted);margin:0 0 16px;display:flex;gap:8px;align-items:center}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.cloud i{background:var(--ok)}
+.songs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.song{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:13px 14px;cursor:pointer}
+.song:hover{border-color:var(--muted)}
+.song .t{font-family:var(--display);font-weight:600;font-size:1.12rem;line-height:1.2}
+.song .a{color:var(--muted);font-size:.9rem}
+.song .txt{flex:1;min-width:0}
+.song .t,.song .a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.song .key{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:1.05rem;min-width:2.4em;text-align:right}
+.tag{font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:2px}
+.empty{color:var(--muted);padding:24px 4px}
+
+/* Editor */
+.ebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px}
+.ebar h2{font-family:var(--display);font-size:1.5rem;margin:0 8px 0 4px;flex:1;min-width:140px}
+.egrid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.fields.small{grid-template-columns:repeat(3,minmax(0,1fr))}
+textarea#eBody{font-family:var(--mono);font-size:16px;line-height:1.3;min-height:52vh;resize:vertical;white-space:pre;overflow-x:auto}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+.tools select{width:auto}
+.status{min-height:1.4em;color:var(--muted);font-size:.92rem;margin:10px 0 0}
+.status.err{color:var(--chord)}
+.help{margin-top:14px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:.92rem}
+.help summary{cursor:pointer;font-weight:700}
+.help pre{font-family:var(--mono);font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto}
+.preview-wrap{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;max-height:80vh;overflow:auto;min-width:0}
+.preview-wrap .plabel{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+
+/* Sheet (shared by player + preview) */
+.sheet-inner{font-family:var(--ui);line-height:1.2}
+.blk{break-inside:avoid;margin:0 0 .85em}
+.pair{break-inside:avoid}
+.ch{color:var(--chord);font-weight:700;white-space:pre}
+.ly{white-space:pre}
+.sec{font-family:var(--ui);font-weight:700;font-size:.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:.1em}
+.head{margin-bottom:.7em}
+.blk.k-chorus{border-left:3px solid var(--chord);padding-left:.45em}
+.blk.k-chorus .sec{color:var(--chord)}
+.blk.k-other .sec{opacity:.75}
+.secbar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;background:var(--soft);border:1px solid var(--line);border-bottom:0;padding:6px 8px}
+.secbar .btn{padding:4px 9px;font-size:.85rem}
+.secbar .cblbl{font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.stitle{font-family:var(--display);font-weight:800;font-size:1.35em;line-height:1.05}
+.smeta{font-family:var(--ui);font-size:.68em;color:var(--muted);margin-top:.2em}
+.static{font-size:15px}
+.static .ly,.static .ch{overflow-wrap:normal}
+
+/* Player */
+.player{position:fixed;inset:0;z-index:10;background:var(--surface);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.pbar{display:flex;gap:4px;align-items:center;padding:3px 10px;border-bottom:1px solid var(--line);background:var(--soft);overflow-x:auto;flex:none;scrollbar-width:none}
+.pbar .btn{padding:2px 8px;font-size:.78rem;line-height:1.35;border-radius:6px}
+.ptitle{visibility:hidden;font-family:var(--display);font-weight:600;font-size:.8rem;flex:1;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 6px}
+.grp{display:flex;align-items:center;gap:3px;padding:0 5px;border-left:1px solid var(--line)}
+.grp .lbl{white-space:nowrap;font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:3px}
+.val{font-family:var(--mono);font-weight:700;font-size:.85rem;min-width:2.6em;text-align:center;color:var(--chord)}
+.sheet{flex:1;position:relative;min-height:0;cursor:default;user-select:none;-webkit-user-select:none}
+.sheet{touch-action:pinch-zoom;overflow:hidden}
+.sheet .sheet-inner{position:absolute;inset:5px 18px 4px;overflow:hidden;display:flex;flex-direction:column}
+.shead{display:flex;align-items:baseline;gap:10px;min-width:0;flex:none}
+.shead .stitle{font-family:var(--display);font-weight:800;font-size:13px;line-height:1.2;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+.shead .smeta{font-family:var(--ui);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0;margin:0}
+.player.paged .shead{padding-right:190px}
+.player.nobar .pbar{visibility:hidden;pointer-events:none}
+.edgeline{position:absolute;left:0;right:0;height:0;border-top:2px dashed var(--chord);opacity:0;transition:opacity .3s;pointer-events:none}
+.edgeline.show{opacity:1}
+.edgeline.show::after{content:"Bottom of your screen should be here";position:absolute;right:0;top:4px;font:700 12px var(--ui);color:var(--chord);background:var(--surface);padding:2px 6px;border-radius:4px}
+.srule{height:1px;background:var(--line);margin:3px 0 6px;flex:none}
+.trackwrap{flex:1;min-height:0;overflow:hidden;position:relative}
+.track{display:flex;height:100%}
+.spage{flex:0 0 100%;display:flex;height:100%;overflow:hidden;min-width:0}
+.col{flex:none;overflow:hidden}
+.sheet-inner .blk{margin:0 0 .55em}
+.sheet-inner .blk.cont{margin-top:0}
+.col + .col{border-left:1px solid var(--line);padding-left:var(--cg,8px)}
+.sheet-inner .sec{font-family:var(--ui);font-weight:700;font-size:.8em;letter-spacing:.02em;text-transform:none;color:var(--ink);margin-bottom:.05em}
+.pl{white-space:nowrap}
+.sg{display:inline-flex;flex-direction:column;vertical-align:bottom}
+.sg .c{color:var(--chord);font-weight:700;font-size:.9em;line-height:1.1;padding-right:.3em;white-space:pre}
+.sg .t{white-space:pre;line-height:1.15}
+.co{white-space:nowrap;line-height:1.35}
+.co .c{color:var(--chord);font-weight:700;margin-right:.75em}
+.co .f{color:var(--muted);margin-right:.75em}
+.sheet-inner .tab{font-family:var(--mono);line-height:1.1}
+#measure .blk{width:max-content}
+#measure .blk>*{width:max-content}
+.sheet .sec,.sheet .stitle,.sheet .smeta,#measure .sec,#measure .stitle,#measure .smeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#measure{position:fixed;left:-20000px;top:0;width:8000px;height:0;overflow:hidden;visibility:hidden;font-size:20px;pointer-events:none;contain:strict}
+.pager{position:absolute;right:12px;top:6px;display:flex;align-items:center;gap:4px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:2px;font-family:var(--mono);font-weight:700;font-size:.95rem;opacity:.85}
+.pager button{border:0;background:none;cursor:pointer;padding:4px 10px;font-size:1.1rem}
+.showbar{position:fixed;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:3;border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:4px 9px;font-size:.85rem;line-height:1;color:var(--muted);cursor:pointer;display:none}
+.player.nobar .showbar{display:block;opacity:.4}
+.player.nobar .showbar:hover{opacity:1}
+
+.rep{font-weight:700;font-size:.85em;color:var(--chord);margin:.05em 0}
+.rep::before{content:"↻ ";opacity:.8}
+.rotate{position:absolute;inset:0;z-index:4;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--surface);text-align:center;padding:24px;font-weight:700;font-size:1.1rem}
+.rotate .ph{width:46px;height:78px;border:4px solid var(--chord);border-radius:10px;animation:rot 2.2s ease-in-out infinite}
+@keyframes rot{0%,25%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+.rotate small{font-weight:400;color:var(--muted);font-size:.9rem}
+.player.portrait .rotate{display:flex}
+/* Editor: the sheet exactly as it plays, scaled down */
+.pvcol{min-width:0}
+.pvcol .plabel{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;display:flex;justify-content:space-between;gap:8px}
+.pvbox{position:relative;width:100%;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer}
+.pvstage{position:absolute;left:0;top:0;transform-origin:0 0}
+.pvstage.sheet{flex:none}
+@media (min-width:1100px){
+  .editor{max-width:none;padding-left:22px;padding-right:22px}
+  .egrid{grid-template-columns:minmax(440px,.8fr) minmax(0,1.2fr);align-items:start}
+  .pvcol{position:sticky;top:10px}
+}
+
+/* Modal + toast */
+.modal{position:fixed;inset:0;z-index:30;background:rgba(10,14,20,.55);display:grid;place-items:center;padding:16px}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:min(560px,100%);max-height:88vh;overflow:auto;padding:20px}
+.mcard h3{font-family:var(--display);font-size:1.4rem;margin:0 0 6px}
+.mcard p{color:var(--muted);margin:0 0 14px}
+.mcard .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;justify-content:flex-end}
+.mcard textarea{font-family:var(--mono);min-height:240px;white-space:pre}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;z-index:40;max-width:calc(100% - 32px);font-size:.92rem}
+.mtop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mtop h3{margin:0}
+.btn.mx{padding:4px 11px;font-size:1rem;background:var(--soft)}
+.pzone{min-height:130px;max-height:200px;overflow:hidden;border:2px dashed var(--chord);border-radius:10px;padding:16px;background:var(--soft);display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;color:var(--chord);-webkit-user-select:text;user-select:text}
+.pzone:empty::before{content:attr(data-ph)}
+.mcard .row.center{justify-content:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<section id="libraryView" class="lib">
+  <div class="topbar"><button id="lDrive" class="btn" type="button">Drive sync</button><button id="lBackup" class="btn" type="button">Back up all</button></div>
+  <header class="lhead">
+    <div class="brand">
+      <h1>Magic <span>Chord</span></h1>
+      <p>Chord sheets that fit on one screen. Tap a song to play.</p>
+    </div>
+    <div class="lactions">
+      <button id="lNew" class="btn primary" type="button">New song</button>
+      <button id="lGet" class="btn chordy" type="button">Find a song online</button>
+      <button id="lPaste" class="btn chordy" type="button">Paste a song</button>
+      <button id="lImport" class="btn" type="button">Import PDF or file</button>
+    </div>
+  </header>
+  <div class="lsearch"><input id="lSearch" type="search" placeholder="Search title, artist or words" aria-label="Search songs"></div>
+  <div id="lSync" class="sync"><i></i><span>Checking storage…</span></div>
+  <ul id="lList" class="songs"></ul>
+</section>
+
+<section id="editorView" class="editor" hidden>
+  <div class="ebar">
+    <button id="eBack" class="btn back" type="button">‹ Songs</button>
+    <h2 id="eHead">New song</h2>
+    <button id="ePlay" class="btn" type="button">Save &amp; open sheet</button>
+    <button id="eSave" class="btn primary" type="button">Save</button>
+  </div>
+  <div class="egrid">
+    <div>
+      <div class="fields">
+        <div><label for="eTitle">Title</label><input id="eTitle" type="text" autocomplete="off"></div>
+        <div><label for="eArtist">Artist</label><input id="eArtist" type="text" autocomplete="off"></div>
+      </div>
+      <div class="fields small">
+        <div><label for="eKey">Key</label><input id="eKey" type="text" placeholder="G" autocomplete="off"></div>
+        <div><label for="eCapo">Capo</label><input id="eCapo" type="text" placeholder="none" autocomplete="off"></div>
+        <div><label for="eNotes">Note</label><input id="eNotes" type="text" placeholder="strum D DU UDU" autocomplete="off"></div>
+      </div>
+      <div class="etabs" role="tablist">
+        <button type="button" class="etab" data-tab="words" role="tab">✎ Type words</button>
+        <button type="button" class="etab" data-tab="chords" role="tab">♪ Place chords</button>
+      </div>
+      <div class="cebox">
+        <p class="cehint">Tap any spot on a line to add a chord there. Drag a chord left or right — or up and down to another line — to move it. Tap a chord to change or remove it.</p>
+        <div id="ePreview" class="ce"></div>
+      </div>
+      <div class="wordsbox">
+      <div class="chordbar" id="chordBar">
+        <span class="cblbl">Chord</span><span class="cbname" id="cbName">—</span>
+        <button id="cbDown" class="btn" type="button" disabled>▼ Lower</button>
+        <button id="cbUp" class="btn" type="button" disabled>▲ Higher</button>
+        <button id="cbMinor" class="btn" type="button" disabled>m</button>
+        <span class="cbhint" id="cbHint">Tap a chord in the song to change it</span>
+      </div>
+      <div class="secbar" id="secBar">
+        <span class="cblbl">Part</span>
+        <button class="btn" type="button" data-sec="Intro">Intro</button>
+        <button class="btn" type="button" data-sec="Verse">Verse</button>
+        <button class="btn" type="button" data-sec="Pre-Chorus">Pre-Chorus</button>
+        <button class="btn" type="button" data-sec="Chorus">Chorus</button>
+        <button class="btn" type="button" data-sec="Bridge">Bridge</button>
+        <button class="btn" type="button" data-sec="Solo">Solo</button>
+        <button class="btn" type="button" data-sec="Outro">Outro</button>
+        <button class="btn" type="button" id="addTab">+ Tab staff</button>
+      </div>
+      <textarea id="eBody" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Type or paste the words here, one line per line of the song.
+Leave a blank line between parts.
+
+Then switch to Place chords and tap above the words to add chords."></textarea>
+      </div>
+      <div class="tools">
+        <button id="eAI" class="btn chordy" type="button" hidden>Add chords with Claude</button>
+        <select id="eLevel" aria-label="Chord difficulty" hidden><option value="std">Usual chords</option><option value="easy">Beginner chords</option></select>
+        <a id="eUG" class="btn" href="https://www.ultimate-guitar.com/" target="_blank" rel="noopener">Find on Ultimate Guitar ↗</a>
+        <button id="ePaste" class="btn chordy" type="button">Paste PDF or picture</button>
+        <button id="eImport" class="btn" type="button">Import PDF or file</button>
+        <button id="eExport" class="btn" type="button">Save as text file</button>
+        <button id="eDelete" class="btn danger" type="button">Delete</button>
+      </div>
+      <p id="eStatus" class="status" role="status"></p>
+      <details class="help">
+        <summary>How to write a song</summary>
+        <p>Put chords on their own line, spaced so each chord sits over the word where it changes. Blank lines split the song into blocks; a block never splits across columns. Section names in brackets show as small labels.</p>
+<pre>[Chorus]
+C            Am
+Every line of words
+F                G
+gets a chord line above</pre>
+        <p>Pasting from Ultimate Guitar works as-is. ChordPro inline format like <code>[G]Words [C]here</code> is converted automatically.</p>
+      </details>
+    </div>
+    <aside class="pvcol"><div class="plabel"><span>How it looks when you play</span><span id="pvInfo"></span></div><div id="pvBox" class="pvbox" title="Tap to play"></div></aside>
+  </div>
+</section>
+
+<section id="playerView" class="player" hidden>
+  <header id="pbar" class="pbar">
+    <button id="pBack" class="btn back" type="button">‹ Songs</button>
+    <div id="pTitle" class="ptitle"></div>
+    <div class="grp"><span class="lbl">Key</span><button id="tDown" class="btn" type="button" aria-label="Transpose down">−</button><span id="tVal" class="val">0</span><button id="tUp" class="btn" type="button" aria-label="Transpose up">+</button></div>
+    <div class="grp" hidden><span class="lbl">Size</span><button id="fDown" class="btn" type="button">A−</button><button id="fFit" class="btn" type="button">Fit</button><button id="fUp" class="btn" type="button">A+</button></div>
+    <div class="grp"><span class="lbl">Edge</span><button id="eUp" class="btn" type="button" aria-label="Move the bottom edge up">▲</button><button id="eDown" class="btn" type="button" aria-label="Move the bottom edge down">▼</button></div>
+    <div class="grp"><button id="pEdit" class="btn" type="button">Edit</button><button id="pHide" class="btn" type="button">Hide bar</button></div>
+  </header>
+  <div id="sheet" class="sheet">
+    <div id="sheetInner" class="sheet-inner"></div>
+    <button id="showBar" class="showbar" type="button" aria-label="Show controls">☰</button>
+    <div class="rotate"><div class="ph"></div>Turn your phone sideways to play<small>The whole song fits on one sheet, like a page.</small></div>
+    <div id="pager" class="pager" hidden><button id="pgPrev" type="button" aria-label="Previous page">‹</button><span id="pgNum">1/1</span><button id="pgNext" type="button" aria-label="Next page">›</button></div>
+  </div>
+</section>
+
+<div id="modal" class="modal" hidden><div class="mcard" id="mCard"></div></div>
+<div id="toast" class="toast" hidden></div>
+<div id="measure" class="sheet-inner" aria-hidden="true"></div>
+<input id="fileIn" type="file" hidden accept=".pdf,.txt,.cho,.chopro,.chordpro,.crd,.json,application/pdf,text/plain">
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const uid = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+/* ---------- Chord parsing ---------- */
+const CHORD_RE = /^\(?[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|\+|°|ø|-)?\d*(?:(?:maj|sus|add|b|#|\+|-|no|M)\d+)*(?:sus\d?)?(?:\/[A-G](?:#|b)?)?\)?\*?$/;
+const FILLER_RE = /^(?:\(?x?\d+x?\)?|[|\/%*.\-:~]+|N\.?C\.?|\(|\))$/i;
+const SEC_WORDS = /^(intro|verse|chorus|pre-?chorus|bridge|outro|solo|interlude|instrumental|hook|refrain|coda|tag|ending|break|riff|other|post-?chorus)\b/i;
+const isChord = t => CHORD_RE.test(t);
+function isChordLine(line){
+  const toks = line.trim().split(/\s+/); if (!toks[0]) return false;
+  let c = 0;
+  for (const t of toks){ if (isChord(t)) c++; else if (!FILLER_RE.test(t)) return false; }
+  return c > 0;
+}
+/* Guitar tab lines like  e|-5-5-3---2-|  or  |-0-0-2--| */
+const TAB_RE = /^\s*(?:[A-Ga-g][#b]?\s*)?\|[-0-9|hpbrxXsvt\/\\~^().*=<> ]*$/;
+const isTabLine = l => TAB_RE.test(l) && (l.match(/-/g) || []).length >= 4;
+function splitWideTabs(lines){
+  // side-by-side tab staves → stacked, so they fit a column
+  const out = []; let i = 0;
+  while (i < lines.length){
+    if (!isTabLine(lines[i])){ out.push(lines[i]); i++; continue; }
+    let j = i; while (j < lines.length && isTabLine(lines[j])) j++;
+    let group = lines.slice(i, j);
+    const stacks = [];
+    while (group.length){
+      const cuts = group.map(l => l.search(/\S\s{3,}(?=(?:[A-Ga-g][#b]?)?\|)/));
+      if (group.length < 2 || cuts.some(c => c < 0)){ stacks.push(group); break; }
+      const left = group.map((l, k) => l.slice(0, cuts[k] + 1));
+      const right = group.map((l, k) => { const r = l.slice(cuts[k] + 1).trim(); const name = (left[k].match(/^\s*([A-Ga-g][#b]?)\s*\|/) || [])[1]; return r.startsWith('|') && name ? name + r : r; });
+      stacks.push(left); group = right;
+    }
+    stacks.forEach((st, k) => { if (k) out.push(''); out.push(...st); });
+    i = j;
+  }
+  return out;
+}
+function headerOf(line){
+  const t = line.trim();
+  let m = t.match(/^\[([^\]]+)\]$/);
+  if (m && !isChord(m[1])) return m[1].trim();
+  if (t.length < 32 && t.split(/\s+/).length <= 3 && SEC_WORDS.test(t) && /^[\w\s\-'#().]+:?$/.test(t) && !isChordLine(t)) return t.replace(/:$/, '');
+  return null;
+}
+function headerWithChords(line){
+  const m = line.match(/^\s*\[?([A-Za-z][\w \-]{0,24}?)\]?\s*:\s*(.+)$/);
+  if (m && SEC_WORDS.test(m[1]) && isChordLine(m[2])) return [m[1], m[2]];
+  return null;
+}
+const isLyric = l => l.trim() && !isChordLine(l) && !isTabLine(l) && !headerOf(l) && !headerWithChords(l);
+/* Typing helpers: "c" → "C", "am" → "Am", "f#M" → "F#m", "d/f#" → "D/F#" */
+function fixChordCase(t){
+  return t.replace(/^(\(?)([a-g])/, (m, p, r) => p + r.toUpperCase())
+          .replace(/\/([a-g])/, (m, r) => '/' + r.toUpperCase())
+          .replace(/^(\(?[A-G][#b]?)M(?!aj|7|9|11|13)/, '$1m')
+          .replace(/^(\(?[A-G][#b]?)MIN/i, '$1m');
+}
+const looseChord = t => /^\(?[a-gA-G]/.test(t) && isChord(fixChordCase(t));
+function looseChordLine(line){
+  const toks = line.trim().split(/\s+/); if (!toks[0]) return false;
+  if (toks.length === 1 && /^[aA]$/.test(toks[0]) && !/^\s/.test(line)) return isChordLine(line);
+  if (headerOf(line) || isTabLine(line)) return false;
+  let c = 0;
+  for (const t of toks){ if (looseChord(t)) c++; else if (!FILLER_RE.test(t)) return false; }
+  return c > 0;
+}
+/* fix case on chord lines; skip the word the cursor is still typing */
+function fixCase(text, caret){
+  let pos = 0;
+  return text.split('\n').map(line => {
+    const start = pos; pos += line.length + 1;
+    if (!looseChordLine(line)) return line;
+    return line.replace(/\S+/g, (t, i) => {
+      if (caret != null && caret >= start + i && caret <= start + i + t.length) return t;
+      return looseChord(t) ? fixChordCase(t) : t;
+    });
+  }).join('\n');
+}
+
+/* Ultimate Guitar style copy: title, artist, Difficulty/Tuning/Key/Capo lines, a CHORDS list, "Page 1/2" */
+const META_RE = /^\s*(difficulty|tuning|key|capo|author|tempo|bpm|strumming|chords by|tabbed by|transcribed by)\s*:\s*(.*)$/i;
+function stripSiteHeader(text, meta){
+  let L = text.split('\n').filter(l => !/^\s*page\s+\d+\s*\/\s*\d+\s*$/i.test(l));
+  const firstIdx = L.findIndex(l => l.trim());
+  if (firstIdx < 0) return L.join('\n');
+  const top = L.slice(firstIdx, firstIdx + 12);
+  const signals = top.some(l => META_RE.test(l) || /^\s*chords\s*$/i.test(l));
+  const plain = l => l && l.trim() && !META_RE.test(l) && !/^\s*chords\s*$/i.test(l) && !isChordLine(l) && !isTabLine(l) && !headerOf(l) && !/^\s*\[/.test(l) && l.trim().length <= 60;
+  if (signals){
+    const drop = new Set();
+    if (plain(L[firstIdx])){
+      meta.title = L[firstIdx].trim(); drop.add(firstIdx);
+      const by = meta.title.match(/^(.*?)\s+(?:chords|tabs?|ukulele chords|bass tabs?)\s*(?:by\s*(.*))?$/i);
+      if (by){ meta.title = by[1].trim(); if (by[2]) meta.artist = by[2].trim(); }
+      let j = firstIdx + 1; while (j < L.length && !L[j].trim()) j++;
+      if (plain(L[j]) && L[j].trim().length <= 40){ meta.artist = L[j].trim(); drop.add(j); }
+    }
+    for (let i = firstIdx; i < Math.min(L.length, firstIdx + 16); i++){
+      const m = L[i].match(META_RE);
+      if (m){ const k = m[1].toLowerCase(), v = m[2].trim();
+        if (k === 'key' && v) meta.key = v.split(/\s+/)[0];
+        if (k === 'capo' && v){ const n = v.match(/\d+/); if (n && n[0] !== '0') meta.capo = n[0]; }
+        drop.add(i); }
+      if (/^\s*chords\s*$/i.test(L[i])){
+        drop.add(i); let j = i + 1;
+        while (j < L.length && L[j].trim() && isChordLine(L[j]) && L[j].trim().split(/\s+/).length <= 2){ drop.add(j); j++; }
+      }
+    }
+    L = L.filter((_, i) => !drop.has(i));
+  }
+  return L.join('\n');
+}
+/* Best-guess key from the chords used: diatonic fit, plus tonic, first and last chord */
+function detectKey(body){
+  const cnt = {}; let first = null, last = null;
+  for (const b of parse(body)) for (const it of b) if (it.c){
+    for (const t of it.c.trim().split(/\s+/)){
+      if (!isChord(t)) continue;
+      const m = t.replace(/[()*]/g, '').match(CH_PARTS); if (!m) continue;
+      const r = noteIdx(m[2]); if (r < 0 || /dim|°|ø/.test(m[3])) continue;
+      const k = r + (/^m(?!aj)/.test(m[3]) ? 'm' : '');
+      cnt[k] = (cnt[k] || 0) + 1; if (first == null) first = k; last = k;
+    }
+  }
+  if (first == null) return '';
+  const c = k => cnt[k] || 0, md = n => ((n % 12) + 12) % 12;
+  let best = null;
+  for (let M = 0; M < 12; M++){
+    const set = [M + '', md(M + 2) + 'm', md(M + 4) + 'm', md(M + 5) + '', md(M + 7) + '', md(M + 9) + 'm'];
+    const base = set.reduce((a, k) => a + c(k), 0);
+    const score = (tonic, extra) => base + extra + c(tonic) * 0.3 + (first === tonic ? 1.5 : 0) + (last === tonic ? 2 : 0);
+    const maj = { name: ['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'][M], s: score(M + '', 0) };
+    const mi = md(M + 9), min = { name: ['Cm','C#m','Dm','Ebm','Em','Fm','F#m','Gm','G#m','Am','Bbm','Bm'][mi], s: score(mi + 'm', c(md(M + 4) + '')) - 2 };
+    for (const o of [maj, min]) if (!best || o.s > best.s + 1e-9) best = o;
+  }
+  return best ? best.name : '';
+}
+/* fill in what the sheet itself tells us when the fields were left empty */
+function songView(s){
+  const n = normalize(s.body || '');
+  return { ...s,
+    title: s.title && s.title !== 'Untitled' ? s.title : (n.meta.title || 'Untitled'),
+    artist: s.artist || n.meta.artist || '',
+    key: s.key || n.meta.key || detectKey(n.text),
+    capo: s.capo || n.meta.capo || '' };
+}
+/* normalize pasted text: UG tags, tabs, ChordPro */
+function normalize(raw){
+  const meta = {};
+  let text = String(raw || '').replace(/\r\n?/g, '\n').replace(/\[\/?(ch|tab)\]/gi, '').replace(/\t/g, '    ').replace(/ /g, ' ');
+  const out = [];
+  text = stripSiteHeader(text, meta);
+  for (let line of text.split('\n')){
+    const d = line.trim().match(/^\{\s*([a-z_]+)\s*(?::\s*(.*?))?\s*\}$/i);
+    if (d){
+      const k = d[1].toLowerCase(), v = (d[2] || '').trim();
+      if (k === 'title' || k === 't') meta.title = v;
+      else if (['artist','subtitle','st','a'].includes(k)) meta.artist = v;
+      else if (k === 'key') meta.key = v;
+      else if (k === 'capo') meta.capo = v;
+      else if (['comment','c','ci','cb','comment_italic'].includes(k)) out.push('[' + v + ']');
+      else if (k === 'soc' || k === 'start_of_chorus') out.push('[' + (v || 'Chorus') + ']');
+      else if (k === 'sov' || k === 'start_of_verse') out.push('[' + (v || 'Verse') + ']');
+      else if (k === 'sob' || k === 'start_of_bridge') out.push('[' + (v || 'Bridge') + ']');
+      continue;
+    }
+    out.push(inlineToAbove(line.replace(/\s+$/, '')));
+  }
+  return { text: splitWideTabs(out.join('\n').split('\n')).join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, ''), meta };
+}
+function inlineToAbove(line){
+  if (!/\[[^\]]+\]/.test(line) || /^\s*\[[^\]]+\]\s*$/.test(line) && !isChord(line.trim().slice(1, -1))) return line;
+  const re = /\[([^\]]+)\]/g; let m, chords = '', lyr = '', last = 0;
+  while ((m = re.exec(line))){
+    if (!isChord(m[1].trim())) return line;
+    lyr += line.slice(last, m.index);
+    if (chords.length && lyr.length <= chords.length) lyr = lyr.padEnd(chords.length + 1);
+    chords = chords.padEnd(lyr.length) + m[1].trim();
+    last = re.lastIndex;
+  }
+  lyr += line.slice(last);
+  return lyr.trim() ? chords + '\n' + lyr : chords;
+}
+function parse(body){
+  const lines = normalize(body).text.split('\n');
+  const blocks = []; let cur = [];
+  const flush = () => { if (cur.some(x => x.t !== 'h')){ blocks.push(cur); cur = []; } }; // a lone label waits for the next block
+  for (let i = 0; i < lines.length; i++){
+    const ln = lines[i];
+    if (!ln.trim()){ flush(); continue; }
+    const hc = headerWithChords(ln);
+    if (hc){ if (cur.some(x => x.t !== 'h')) flush(); cur.push({t:'h', text:hc[0]}, {t:'c', c:hc[1].trimEnd()}); continue; }
+    const h = headerOf(ln);
+    if (h){ if (cur.some(x => x.t !== 'h')) flush(); cur.push({t:'h', text:h}); continue; }
+    if (isTabLine(ln)){ cur.push({t:'t', l:ln.replace(/\s+$/, '')}); continue; }
+    if (isChordLine(ln)){
+      const nx = lines[i + 1];
+      if (nx != null && isLyric(nx)){ cur.push({t:'p', c:ln, l:nx}); i++; }
+      else cur.push({t:'c', c:ln});
+      continue;
+    }
+    cur.push({t:'l', l:ln});
+  }
+  flush(); if (cur.length) blocks.push(cur);
+  return blocks;
+}
+
+/* ---------- Transpose ---------- */
+const SH = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'], FL = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const EXTRA = {Cb:11, Fb:4, 'E#':5, 'B#':0};
+const noteIdx = n => { let i = SH.indexOf(n); if (i < 0) i = FL.indexOf(n); if (i < 0 && n in EXTRA) i = EXTRA[n]; return i; };
+const tNote = (n, s, flat) => { const i = noteIdx(n); return i < 0 ? n : (flat ? FL : SH)[((i + s) % 12 + 12) % 12]; };
+const CH_PARTS = /^(\(?)([A-G][#b]?)([^\/)]*?)(?:\/([A-G][#b]?))?(\)?\*?)$/;
+function transposeChord(tok, s, flat){
+  if (!s) return tok;
+  return tok.replace(CH_PARTS, (m, a, r, q, b, z) => a + tNote(r, s, flat) + q + (b ? '/' + tNote(b, s, flat) : '') + z);
+}
+function transposeLine(line, s, flat){
+  if (!s) return line;
+  let out = ''; const re = /\S+/g; let m;
+  while ((m = re.exec(line))){
+    const t = isChord(m[0]) ? transposeChord(m[0], s, flat) : m[0];
+    if (out.length && out.length >= m.index) out += ' '; else out = out.padEnd(m.index);
+    out += t;
+  }
+  return out;
+}
+function firstChord(song){
+  if (song.key && CH_PARTS.test(song.key.trim())) return song.key.trim();
+  for (const b of parse(song.body)) for (const it of b) if (it.c){ const t = it.c.trim().split(/\s+/).find(isChord); if (t) return t; }
+  return null;
+}
+function prefersFlats(song, s){
+  const fc = firstChord(song); if (!fc) return false;
+  const m = fc.match(CH_PARTS); if (!m) return false;
+  const i = ((noteIdx(m[2]) + s) % 12 + 12) % 12;
+  const minor = /^m(?!aj)/.test(m[3]);
+  return minor ? [0,2,3,5,7,10].includes(i) : [1,3,5,8,10].includes(i);
+}
+
+/* ---------- Examples (public-domain songs) ---------- */
+const EXAMPLES = [
+  { id:'ex-amazing-grace', title:'Amazing Grace', artist:'Traditional (John Newton)', key:'G', capo:'', notes:'3/4 time',
+    body:`[Verse 1]
+A[G]mazing [G7]grace! How [C]sweet the [G]sound
+That [G]saved a wretch like [D]me!
+I [G]once was [G7]lost, but [C]now am [G]found;
+Was [G]blind, but [D]now I [G]see.
+
+[Verse 2]
+'Twas [G]grace that taught my [G7]heart to [C]fear,
+And [G]grace my fears re[D]lieved;
+How [G]precious [G7]did that [C]grace ap[G]pear
+The [G]hour I [D]first be[G]lieved.
+
+[Verse 3]
+Through [G]many dangers, [G7]toils and [C]snares,
+I [G]have already [D]come;
+'Tis [G]grace hath [G7]brought me [C]safe thus [G]far,
+And [G]grace will [D]lead me [G]home.
+
+[Verse 4]
+When [G]we've been there ten [G7]thousand [C]years,
+Bright [G]shining as the [D]sun,
+We've [G]no less [G7]days to [C]sing God's [G]praise
+Than [G]when we'd [D]first be[G]gun.` },
+  { id:'ex-red-river', title:'Red River Valley', artist:'Traditional', key:'C', capo:'', notes:'',
+    body:`[Intro]
+| C | G7 | C | C |
+
+[Verse 1]
+From this [C]valley they say you are going,
+We will [G7]miss your bright eyes and sweet smile,
+For they [C]say you are [C7]taking the [F]sunshine
+That has [C]brightened our [G7]pathway a [C]while.
+
+[Chorus]
+Come and [C]sit by my side if you love me,
+Do not [G7]hasten to bid me adieu,
+But re[C]member the [C7]Red River [F]Valley,
+And the [C]one who has [G7]loved you so [C]true.
+
+[Verse 2]
+Won't you [C]think of the valley you're leaving?
+Oh how [G7]lonely, how sad it will be.
+Oh, just [C]think of the [C7]fond heart you're [F]breaking,
+And the [C]grief you are [G7]causing to [C]me.` }
+].map(e => ({ ...e, body: normalize(e.body).text, example: true }));
+
+/* ---------- State + storage ---------- */
+const S = { songs: LS.get('sb.songs', []), col: null, sample: null, downloads: null, cloud: false,
+  view: 'lib', cur: null, edit: null, page: 0, pages: 1, gap: 24, fit: null, maxLen: 20, CW: 0.5 };
+const FIELDS = ['title','artist','key','capo','notes','body','createdAt','updatedAt','fromExample'];
+const clean = s => { const o = {}; FIELDS.forEach(k => { if (s[k] != null) o[k] = s[k]; }); return o; };
+const prefs = id => LS.get('sb.p.' + id, { semis: 0, size: 0, cols: 0 });
+const setPrefs = (id, p) => LS.set('sb.p.' + id, p);
+
+function allSongs(){
+  const own = S.songs;
+  const ex = EXAMPLES.filter(e => !own.some(s => s.fromExample === e.id));
+  const t = x => (x.title && x.title !== 'Untitled' ? x.title : normalize(x.body || '').meta.title) || 'Untitled';
+  return [...own, ...ex].sort((a, b) => t(a).localeCompare(t(b), undefined, { sensitivity: 'base' }));
+}
+async function saveSong(song){
+  song.updatedAt = Date.now(); song.createdAt = song.createdAt || song.updatedAt;
+  const i = S.songs.findIndex(s => s.id === song.id);
+  if (i >= 0) S.songs[i] = song; else S.songs.push(song);
+  if (S.col){
+    try { await S.col.doc(song.id).set(clean(song)); delete song.pending; }
+    catch (e){ song.pending = true; toast('Saved on this device. Account sync failed: ' + (e.message || e.code || 'unknown')); }
+  } else song.pending = true;
+  LS.set('sb.songs', S.songs); renderLib();
+  if (D.url) drivePush([song]);
+}
+async function deleteSong(id){
+  S.songs = S.songs.filter(s => s.id !== id); LS.set('sb.songs', S.songs);
+  if (D.url){ const t = { id, deleted: true, updatedAt: Date.now() }; D.tomb = D.tomb.filter(x => x.id !== id).concat(t); LS.set('sb.tomb', D.tomb); drivePush([t]); }
+  if (S.col){ try { await S.col.doc(id).delete(); } catch (e){ toast('Could not delete from your account: ' + (e.message || e.code)); } }
+  renderLib();
+}
+function setSync(cloud){
+  S.cloud = cloud;
+  const el = $('#lSync'); el.classList.toggle('cloud', cloud);
+  el.querySelector('span').textContent = cloud
+    ? 'Saved to your Claude account — the same songs show up on your phone and computer.'
+    : 'Saved in this browser only. Use "Back up all" now and then so you never lose songs again.';
+}
+async function initServices(){
+  const c = window.claude;
+  if (!c || typeof c.use !== 'function'){ driveInit(); return; }
+  const get = n => c.use(n).catch(() => null);
+  const [db, user, sample, downloads] = await Promise.all([get('db'), get('user'), get('sample'), get('downloads')]);
+  S.sample = sample; S.downloads = downloads;
+  $('#eAI').hidden = $('#eLevel').hidden = !sample;
+  if (!db || !user){ setSync(false); return; }
+  try {
+    const id = await user.id();
+    S.col = db.doc('data/users/' + id + '/songbook').collection('songs');
+    let first = true;
+    S.col.onSnapshot(snap => {
+      const remote = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      if (first){
+        first = false;
+        const pend = S.songs.filter(s => s.pending && !remote.some(r => r.id === s.id));
+        pend.forEach(s => S.col.doc(s.id).set(clean(s)).then(() => { delete s.pending; LS.set('sb.songs', S.songs); }).catch(() => {}));
+        S.songs = [...remote, ...pend];
+      } else {
+        const pend = S.songs.filter(s => s.pending && !remote.some(r => r.id === s.id));
+        S.songs = [...remote, ...pend];
+      }
+      LS.set('sb.songs', S.songs); setSync(true); renderLib();
+    }, () => setSync(false));
+  } catch { setSync(false); }
+}
+
+
+/* ---------- Google Drive sync (standalone app) ----------
+   One file in Gustavo's Drive holds every song; his Apps Script reads/merges it. Newest change wins.
+   Each device keeps its own copy too, so songs open with no internet. */
+const D = { url: LS.get('sb.drive', ''), tomb: LS.get('sb.tomb', []), busy: Promise.resolve(), ok: null };
+const wire = s => { const o = { id: s.id, ...clean(s) }; if (s.deleted) o.deleted = true; return o; };
+function driveParts(){ try { const u = new URL(D.url); const k = u.searchParams.get('k') || ''; u.searchParams.delete('k'); return { base: u.toString(), k }; } catch { return null; } }
+function mergeIn(remote){
+  const map = new Map();
+  [...S.songs, ...D.tomb].forEach(s => map.set(s.id, s));
+  remote.forEach(r => { const l = map.get(r.id); if (!l || (r.updatedAt || 0) > (l.updatedAt || 0)) map.set(r.id, r); });
+  const all = [...map.values()];
+  S.songs = all.filter(s => !s.deleted); D.tomb = all.filter(s => s.deleted);
+  LS.set('sb.songs', S.songs); LS.set('sb.tomb', D.tomb);
+  const rm = new Map(remote.map(r => [r.id, r]));
+  if (S.view === 'lib') renderLib();
+  return all.filter(s => { const r = rm.get(s.id); return !r || (s.updatedAt || 0) > (r.updatedAt || 0); });
+}
+async function driveCall(songs){
+  const p = driveParts(); if (!p || !p.k) throw new Error('The sync link is missing its key');
+  const res = songs ? await fetch(p.base, { method: 'POST', body: JSON.stringify({ k: p.k, songs: songs.map(wire) }) })
+                    : await fetch(p.base + (p.base.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(p.k) + '&t=' + Date.now());
+  const j = await res.json();
+  if (!j || !j.ok) throw new Error(j && j.error || 'Drive did not answer');
+  return j.songs || [];
+}
+function driveStatus(ok, msg){
+  D.ok = ok;
+  const el = $('#lSync'); el.classList.toggle('cloud', ok === true); el.classList.toggle('err', ok === false);
+  el.querySelector('span').textContent = msg;
+}
+function driveSync(){
+  if (!D.url) return Promise.resolve();
+  D.busy = D.busy.then(async () => {
+    try {
+      const push = mergeIn(await driveCall());
+      if (push.length) mergeIn(await driveCall(push));
+      driveStatus(true, 'Synced with your Google Drive — the same songs on your iPhone, iPad and Mac.');
+    } catch (e){ driveStatus(false, 'Drive sync failed (' + (e.message || 'no connection') + '). Songs are safe on this device; it tries again next time.'); }
+  });
+  return D.busy;
+}
+function drivePush(list){
+  D.busy = D.busy.then(async () => {
+    try { mergeIn(await driveCall(list)); driveStatus(true, 'Synced with your Google Drive — the same songs on your iPhone, iPad and Mac.'); }
+    catch (e){ driveStatus(false, 'Saved on this device. Drive sync failed — it tries again when you open the app.'); }
+  });
+}
+function driveInit(){
+  const m = location.hash.match(/^#sync=(.+)$/);
+  if (m){ try { D.url = decodeURIComponent(m[1]); LS.set('sb.drive', D.url); } catch {} history.replaceState(null, '', location.pathname); toast('Drive sync is set up on this device.'); }
+  if (!D.url){ setSync(false); $('#lSync span').textContent = 'Saved on this device only. Tap Drive sync to keep your songs the same on all your devices.'; return; }
+  driveStatus(null, 'Syncing with Google Drive…');
+  driveSync();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && D.url && S.view !== 'player') driveSync(); });
+function driveDialog(){
+  modal(`<div class="mtop"><button class="btn mx" type="button" data-close aria-label="Close">✕</button><h3>Google Drive sync</h3></div>
+    <p>Paste your Magic Chord sync link once on each device (iPhone, iPad, Mac). Songs are kept in <b>Magic Chord songs.json</b> in your Drive, with a daily backup.</p>
+    <label for="dUrl">Sync link</label><input id="dUrl" type="text" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec?k=…" value="${esc(D.url)}">
+    <p id="dStat" class="status"></p>
+    <div class="row center"><button id="dDone" class="btn primary" type="button">Done</button>${D.url ? '<button id="dLink" class="btn" type="button">Copy setup link for another device</button>' : ''}</div>`);
+  $('#mCard').dataset.sticky = '1';
+  $('#dDone').onclick = async () => {
+    const v = $('#dUrl').value.trim();
+    if (v && !/^https:\/\/script\.google\.com\/.+[?&]k=/.test(v)){ $('#dStat').textContent = 'That doesn\'t look like the sync link (it starts with https://script.google.com and ends with ?k=…).'; $('#dStat').classList.add('err'); return; }
+    D.url = v; LS.set('sb.drive', v); closeModal();
+    if (v){ driveStatus(null, 'Syncing with Google Drive…'); await driveSync(); if (D.ok) toast('Drive sync is on.'); }
+    else { setSync(false); $('#lSync span').textContent = 'Saved on this device only.'; }
+  };
+  const dl = $('#dLink');
+  if (dl) dl.onclick = async () => {
+    const link = location.origin + location.pathname + '#sync=' + encodeURIComponent(D.url);
+    try { await navigator.clipboard.writeText(link); $('#dStat').textContent = 'Copied. Send it to yourself (Notes, AirDrop or email) and open it on the other device.'; }
+    catch { $('#dUrl').value = link; $('#dUrl').select(); $('#dStat').textContent = 'Copy the link above and open it on the other device.'; }
+  };
+}
+$('#lDrive').onclick = driveDialog;
+
+/* ---------- Library ---------- */
+function renderLib(){
+  const q = $('#lSearch').value.trim().toLowerCase();
+  const list = allSongs().filter(s => !q || [s.title, s.artist, s.body].join(' ').toLowerCase().includes(q));
+  $('#lList').innerHTML = list.length ? list.map(s => songView(s)).map(s => `
+    <li><button class="song" type="button" data-id="${esc(s.id)}">
+      <span class="txt"><span class="t">${esc(s.title || 'Untitled')}${s.example ? '<span class="tag">Example</span>' : ''}</span>
+      <span class="a">${esc(s.artist || '—')}</span></span>
+      <span class="key">${esc(s.key || '')}</span>
+    </button></li>`).join('')
+    : `<li class="empty">${q ? 'No songs match that search.' : 'No songs yet.'}</li>`;
+}
+const findSong = id => allSongs().find(s => s.id === id);
+
+/* ---------- Sheet rendering ----------
+   Like a printed songbook: proportional type, each chord pinned over the syllable it lands on,
+   title across the top, parts flowing down columns that are only as wide as their words. */
+function pairHTML(c, l){
+  const chords = []; c.replace(/\S+/g, (t, i) => { chords.push({ i, t }); });
+  const lead = l.match(/^ */)[0].length;           // drop the indent sites like UG add
+  chords.forEach(ch => { if (ch.i < lead) ch.i = lead; });
+  const text = l.slice(lead); chords.forEach(ch => ch.i -= lead);
+  const segs = [];
+  if (!chords.length || chords[0].i > 0) segs.push({ c: '', t: text.slice(0, chords.length ? chords[0].i : undefined) });
+  chords.forEach((ch, k) => {
+    const end = k + 1 < chords.length ? chords[k + 1].i : text.length;
+    segs.push({ c: ch.t, t: text.slice(Math.min(ch.i, text.length), Math.max(Math.min(end, text.length), Math.min(ch.i, text.length))) });
+  });
+  return `<div class="pl">${segs.map(sg => `<span class="sg"><span class="c">${sg.c ? esc(sg.c) : '&nbsp;'}</span><span class="t">${sg.t ? esc(sg.t) : '&nbsp;'}</span></span>`).join('')}</div>`;
+}
+function chordsOnlyHTML(c){
+  const toks = c.trim().split(/\s+/), rows = [];          // long chord runs (intros) wrap every 8 chords
+  let row = [], n = 0;
+  toks.forEach(t => { if (isChord(t) && n === 8){ rows.push(row); row = []; n = 0; } row.push(t); if (isChord(t)) n++; });
+  if (row.length) rows.push(row);
+  return rows.map(r => `<div class="co">${r.map(t => isChord(t) ? `<span class="c">${esc(t)}</span>` : `<span class="f">${esc(t)}</span>`).join('')}</div>`).join('');
+}
+function sheetHTML(song, semis){
+  const flat = prefersFlats(song, semis);
+  const tr = l => transposeLine(l, semis, flat);
+  const key = song.key ? transposeLine(song.key, semis, flat) : '';
+  const meta = [song.artist, key && 'Key ' + key, song.capo && 'Capo ' + song.capo, song.notes].filter(Boolean).join('  ·  ');
+  const blocks = [];
+  let prevB = null, prevLabel = ''; const seen = new Set();
+  for (const b0 of parse(song.body)){
+    const items = [];
+    const b = [];
+    for (let i = 0; i < b0.length; i++){           // a run of tiny lines (1 & 2 & 3 &…) becomes one line
+      const tiny = x => x && x.t === 'l' && x.l.trim().length <= 3;
+      if (tiny(b0[i])){ let j = i; while (tiny(b0[j])) j++; if (j - i >= 3){ b.push({ t:'l', l: b0.slice(i, j).map(x => x.l.trim()).join('  ') }); i = j - 1; continue; } }
+      b.push(b0[i]);
+    }
+    // a part already written out above (same words and chords) shows as one line: ↻ Chorus
+    const heads = b.filter(x => x.t === 'h'), body = b.filter(x => x.t !== 'h');
+    const sig = body.map(x => (x.c || '') + '|' + (x.l || '')).join('\n').replace(/\s+/g, ' ').trim().toLowerCase();
+    const lead = heads.length > 1 ? heads.slice(0, -1) : [];   // a label with nothing under it = play that part again
+    lead.forEach(h => items.push(`<div class="rep">${esc(h.text)}</div>`));
+    if (heads.length && body.length >= 2 && seen.has(sig)){
+      items.push(`<div class="rep">${esc(heads[heads.length - 1].text)}</div>`);
+      blocks.push({ items, kind: 'rep', tab: false }); prevB = b; prevLabel = heads[heads.length - 1].text; continue;
+    }
+    if (body.length) seen.add(sig);
+    if (!body.length && heads.length){ items.push(`<div class="rep">${esc(heads[heads.length - 1].text)}</div>`); blocks.push({ items, kind: 'rep', tab: false }); continue; }
+    for (const it of b){
+      if (it.t === 'h' && it !== heads[heads.length - 1]) continue;
+      if (it.t === 'h') items.push(`<div class="sec">${esc(it.text)}</div>`);
+      else if (it.t === 'p') items.push(pairHTML(tr(it.c), it.l));
+      else if (it.t === 'c') items.push(chordsOnlyHTML(tr(it.c)));
+      else if (it.t === 't') items.push(`<div class="tab">${esc(it.l)}</div>`);
+      else items.push(`<div class="ly">${esc(it.l.trim()) || '&nbsp;'}</div>`);
+    }
+    let label = heads.length ? heads[heads.length - 1].text : null;
+    const tabOnly = b.every(x => x.t === 't'), prevTab = prevB && prevB[prevB.length - 1].t === 't';
+    if (!label && tabOnly && prevTab) label = prevLabel;
+    else if (!label) label = 'other';
+    prevB = b; prevLabel = label;
+    blocks.push({ items, kind: sectionKind(label), tab: b.some(x => x.t === 't') });
+  }
+  const blkHTML = (bk, from = 0, to = bk.items.length) => `<div class="blk${bk.kind ? ' k-' + bk.kind : ''}">${bk.items.slice(from, to).join('')}</div>`;
+  const head = `<div class="shead"><div class="stitle">${esc(song.title || 'Untitled')}</div>${meta ? `<div class="smeta">${esc(meta)}</div>` : ''}</div>`;
+  return { blocks, blkHTML, head };
+}
+
+function sectionKind(label){
+  const l = label.toLowerCase();
+  if (/pre-?chorus/.test(l)) return 'pre';
+  if (/chorus|refrain|hook/.test(l)) return 'chorus';
+  if (/^other/.test(l)) return 'other';
+  const m = l.match(/^(intro|verse|bridge|solo|outro|interlude|instrumental)/);
+  return m ? m[1] : 'part';
+}
+/* ---------- Player ---------- */
+function show(view){
+  S.view = view;
+  $('#libraryView').hidden = view !== 'lib';
+  $('#editorView').hidden = view !== 'edit';
+  $('#playerView').hidden = view !== 'player';
+  if (view === 'player') wake(); else unwake();
+  document.documentElement.style.overflow = document.body.style.overflow = view === 'player' ? 'hidden' : '';
+}
+function openPlayer(id){
+  const raw = findSong(id); if (!raw) return;
+  const song = songView(raw);
+  S.cur = song; S.page = 0;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // close the keyboard so the page doesn't stay shifted up
+  window.scrollTo(0, 0); setTimeout(() => { window.scrollTo(0, 0); layout(); }, 350);
+  $('#pTitle').textContent = song.title || 'Untitled';
+  setBar(LS.get('sb.bar', true));
+  show('player');
+  renderPlayer();
+}
+function renderPlayer(){
+  const p = prefs(S.cur.id);
+  const r = sheetHTML(S.cur, p.semis);
+  S.blocks = r.blocks; S.blkHTML = r.blkHTML; S.head = r.head; S.playBlk = r.blkHTML;
+  const token = S.renderToken = (S.renderToken || 0) + 1;
+  fontsReady.then(() => { if (token !== S.renderToken) return; S.blkHTML = S.playBlk; measureBlocks(S.blocks); layout(); });
+  const fc = firstChord(S.cur);
+  const shown = S.cur.key ? transposeLine(S.cur.key, p.semis, prefersFlats(S.cur, p.semis)) : (fc ? transposeChord(fc, p.semis, prefersFlats(S.cur, p.semis)) : '');
+  $('#tVal').textContent = shown ? shown + (p.semis ? ` (${p.semis > 0 ? '+' : ''}${p.semis})` : '') : (p.semis > 0 ? '+' : '') + p.semis;
+  $('#fFit').classList.toggle('chordy', !p.size);
+  $('#fFit').classList.toggle('chordy', !p.size);
+}
+const fontsReady = (document.fonts && document.fonts.load ? Promise.all(['400 20px "Atkinson Hyperlegible"','700 20px "Atkinson Hyperlegible"','400 20px "Ubuntu Mono"','800 24px "Bricolage Grotesque"'].map(f => document.fonts.load(f).catch(() => {}))) : Promise.resolve())
+  .then(() => new Promise(r => setTimeout(r, 0)));
+/* Measure every line of every part once at 20px; sizes scale with the font. */
+const F0 = 20;
+function measureBlocks(blocks){
+  const m = $('#measure');
+  m.innerHTML = blocks.map(b => S.blkHTML(b)).join('');
+  [...m.children].forEach((el, i) => {
+    const b = blocks[i], cs = getComputedStyle(el);
+    const top = el.offsetTop, kids = [...el.children];
+    b.mb = parseFloat(cs.marginBottom) || 0;
+    b.pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
+    b.ih = kids.map((k, j) => (j < kids.length - 1 ? kids[j + 1].offsetTop : top + el.offsetHeight) - k.offsetTop);
+    b.iw = kids.map(k => Math.ceil(k.getBoundingClientRect().width) + 1);
+    b.isHead = kids.map(k => k.classList.contains('sec'));
+    b.h = b.ih.reduce((a, x) => a + x, 0);
+  });
+  m.innerHTML = '';
+}
+/* Fill columns top to bottom like a printed songbook page. A part stays whole when it can;
+   a long part continues in the next column (never leaving its label alone at the bottom). */
+function pack(blocks, size, H){
+  const k = size / F0, cols = [];
+  let col = null, used = 0;
+  const newCol = () => { col = { segs: [], w: 0 }; cols.push(col); used = 0; };
+  newCol();
+  blocks.forEach((b, bi) => {
+    const n = b.ih.length, bh = b.h * k, mb = b.mb * k;
+    if (used > 0 && used + bh > H){
+      const room = H - used;
+      if (n <= 6 || room < bh * 0.45 || room < (b.ih[0] + (b.ih[1] || 0) + (b.ih[2] || 0)) * k) newCol();
+    }
+    let i = 0;
+    while (i < n){
+      let j = i, hs = 0, w = 0;
+      while (j < n && used + hs + b.ih[j] * k <= H){ hs += b.ih[j] * k; w = Math.max(w, b.iw[j]); j++; }
+      if (j === i){ if (used > 0){ newCol(); continue; } hs = b.ih[i] * k; w = b.iw[i]; j = i + 1; }
+      if (j < n && j - i > 1 && b.isHead[j - 1]){ j--; hs -= b.ih[j] * k; w = Math.max(0, ...b.iw.slice(i, j)); }
+      if (j < n && n - j === 1 && j - i >= 3){ j--; hs -= b.ih[j] * k; w = Math.max(...b.iw.slice(i, j)); }
+      col.segs.push({ bi, from: i, to: j });
+      col.w = Math.max(col.w, (w + b.pad) * k);
+      used += hs;
+      i = j;
+      if (i < n) newCol(); else used += mb;
+    }
+  });
+  if (!col.segs.length) cols.pop();
+  return cols;
+}
+const gapFor = size => Math.max(7, size * 0.8);
+function sheetsOf(cols, W, gap){
+  const sheets = [[]]; let w = 0;
+  cols.forEach(c => {
+    const add = (sheets[sheets.length - 1].length ? gap * 2 + 1 : 0) + c.w;
+    if (sheets[sheets.length - 1].length && w + add > W){ sheets.push([c]); w = c.w; }
+    else { sheets[sheets.length - 1].push(c); w += add; }
+  });
+  return sheets;
+}
+const MIN_ONE_SHEET = 6.5;   // like the old app: long songs just get smaller type; only past this does it split
+/* Draw a song sheet into `inner` (a .sheet-inner). Returns { size, pages }. */
+function drawSheet(inner, d, trim){
+  inner.innerHTML = d.head + '<div class="srule"></div><div class="trackwrap"><div class="track"></div></div>';
+  const wrap = inner.querySelector('.trackwrap'), track = inner.querySelector('.track');
+  const W = wrap.clientWidth, IH = wrap.clientHeight; if (!W || !IH) return null;
+  const H = IH - 4 - (trim || 0);
+  const totalW = (cols, s) => cols.reduce((a, c) => a + c.w, 0) + (gapFor(s) * 2 + 1) * (cols.length - 1);
+  const fitsOne = s => totalW(pack(d.blocks, s, H), s) <= W * 0.985;
+  let lo = 4, hi = 40;
+  if (fitsOne(hi)) lo = hi;
+  else for (let it = 0; it < 14; it++){ const mid = (lo + hi) / 2; if (fitsOne(mid)) lo = mid; else hi = mid; }
+  let size = lo >= MIN_ONE_SHEET ? lo : 10;
+  const draw = sz => {
+    const gap = gapFor(sz);
+    const sheets = sheetsOf(pack(d.blocks, sz, H), W, gap);
+    track.style.fontSize = sz.toFixed(2) + 'px';
+    track.innerHTML = sheets.map(sh => `<div class="spage" style="gap:${gap.toFixed(1)}px;--cg:${gap.toFixed(1)}px">${sh.map(col =>
+      `<div class="col" style="width:${Math.ceil(col.w + (col === sh[0] ? 0 : gap + 1)) + 1}px;height:${Math.floor(H)}px">${col.segs.map(sg =>
+        d.blkHTML(d.blocks[sg.bi], sg.from, sg.to).replace('class="blk', sg.from > 0 ? 'class="blk cont' : 'class="blk')).join('')}</div>`).join('')}</div>`).join('');
+    return sheets.length;
+  };
+  let pages = draw(size);
+  for (let tries = 0; tries < 6; tries++){
+    let ratio = 1;
+    track.querySelectorAll('.col').forEach(c => {
+      if (c.scrollHeight > c.clientHeight + 1) ratio = Math.min(ratio, Math.max(0.85, c.clientHeight / c.scrollHeight));
+      if (c.scrollWidth > c.clientWidth + 1) ratio = Math.min(ratio, c.clientWidth / c.scrollWidth);
+    });
+    if (ratio >= 1) break;
+    size *= Math.min(0.98, ratio * 0.995); pages = draw(size);
+  }
+  return { size, pages: Math.max(1, pages), H };
+}
+function layout(){
+  if (S.view !== 'player' || !S.cur || !S.blocks || !S.blocks.length || S.blocks[0].ih == null) return;
+  const inner = $('#sheetInner');
+  const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 760;
+  $('#playerView').classList.toggle('portrait', portrait);
+  const r = drawSheet(inner, { blocks: S.blocks, blkHTML: S.playBlk, head: S.head }, edgeTrim());
+  if (!r) return;
+  inner.querySelector('.track').id = 'track';
+  inner.querySelector('.trackwrap').insertAdjacentHTML('beforeend', `<div class="edgeline" id="edgeLine" style="top:${Math.floor(r.H)}px"></div>`);
+  S.fit = { size: r.size }; S.pages = r.pages;
+  S.page = Math.min(S.page, S.pages - 1);
+  go(S.page);
+}
+/* Editor: the same sheet, laid out at the real playing size (landscape), shrunk to fit the panel */
+let pvT2;
+function schedulePv(){ clearTimeout(pvT2); pvT2 = setTimeout(drawPreview, 220); }
+function drawPreview(){
+  if (S.view !== 'edit' || !S.edit) return;
+  const box = $('#pvBox'); const bw = box.clientWidth; if (!bw) return;
+  const RW = Math.max(window.innerWidth, window.innerHeight), RH = Math.min(window.innerWidth, window.innerHeight) - 30;
+  const sc = bw / RW;
+  box.style.height = Math.round(RH * sc) + 'px';
+  const song = songView({ ...S.edit, title: $('#eTitle').value.trim(), artist: $('#eArtist').value.trim(), key: $('#eKey').value.trim(),
+    capo: $('#eCapo').value.trim(), notes: $('#eNotes').value.trim(), body: $('#eBody').value });
+  const r = sheetHTML(song, prefs(S.edit.id).semis);
+  S.blkHTML = r.blkHTML;
+  if (!r.blocks.length){ box.innerHTML = ''; $('#pvInfo').textContent = ''; return; }
+  measureBlocks(r.blocks);
+  box.innerHTML = `<div class="pvstage sheet" style="width:${RW}px;height:${RH}px;transform:scale(${sc})"><div class="sheet-inner"></div></div>`;
+  const res = drawSheet(box.querySelector('.sheet-inner'), r, Math.max(0, LS.get('sb.edge.land', 0)));
+  $('#pvInfo').textContent = res ? (res.pages > 1 ? `Too long: ${res.pages} pages — use ↻ repeats` : 'Fits on one sheet') : '';
+}
+function go(n){
+  S.page = Math.max(0, Math.min(S.pages - 1, n));
+  const t = $('#track'); if (t) t.style.transform = `translateX(${-100 * S.page}%)`;
+  $('#pager').hidden = S.pages < 2;
+  $('#playerView').classList.toggle('paged', S.pages > 1);
+  const inner = $('#sheetInner'), portrait = inner.clientHeight > inner.clientWidth;
+  $('#pgNum').textContent = `Part ${S.page + 1} of ${S.pages}` + (portrait ? ' · turn sideways' : '');
+}
+function setBar(on){
+  // the bar only fades out; it keeps its space so the song never moves or rearranges
+  $('#playerView').classList.toggle('nobar', !on);
+  LS.set('sb.bar', on);
+}
+function bump(field, fn){ const p = prefs(S.cur.id); fn(p); setPrefs(S.cur.id, p); S.page = 0; renderPlayer(); }
+/* Some phones give the page more height than they show (Safari / Claude bars). The user can nudge the bottom edge; it's remembered per orientation. */
+const edgeKey = () => 'sb.edge.' + (window.innerWidth > window.innerHeight ? 'land' : 'port');
+const edgeTrim = () => Math.max(0, LS.get(edgeKey(), 0));
+let edgeT;
+function nudgeEdge(d){
+  LS.set(edgeKey(), Math.max(0, Math.min(400, edgeTrim() + d)));
+  layout();
+  const el = $('#edgeLine'); if (el){ el.classList.add('show'); clearTimeout(edgeT); edgeT = setTimeout(() => { const e = $('#edgeLine'); if (e) e.classList.remove('show'); }, 2500); }
+}
+let lock = null;
+async function wake(){ try { lock = await navigator.wakeLock?.request('screen'); } catch { lock = null; } }
+function unwake(){ try { lock?.release(); } catch {} lock = null; }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.view === 'player') wake(); });
+
+/* ---------- Editor ---------- */
+function openEditor(id, preset){
+  const base = id ? findSong(id) : null;
+  const song = base ? { ...base } : { id: uid(), title: '', artist: '', key: '', capo: '', notes: '', body: '', ...(preset || {}) };
+  if (base){ const v = songView(base); if (!song.title || song.title === 'Untitled') song.title = v.title === 'Untitled' ? '' : v.title; song.artist = song.artist || v.artist; song.key = song.key || v.key; song.capo = song.capo || v.capo; song.body = normalize(song.body || '').text; }
+  if (base && base.example){ song.id = uid(); song.fromExample = base.id; delete song.example; }
+  S.edit = song;
+  $('#eHead').textContent = base ? (base.example ? 'Edit example (saves as your copy)' : 'Edit song') : 'New song';
+  $('#eTitle').value = song.title || ''; $('#eArtist').value = song.artist || '';
+  $('#eKey').value = song.key || ''; $('#eCapo').value = song.capo || ''; $('#eNotes').value = song.notes || '';
+  $('#eBody').value = song.body || '';
+  $('#eDelete').hidden = !base || base.example;
+  resetDelete(); status('');
+  show('edit'); setTab(base && (song.body || '').trim() ? 'chords' : 'words'); updateUG();
+  window.scrollTo(0, 0);
+  setTimeout(drawPreview, 50); fontsReady.then(drawPreview);
+}
+function readEditor(){
+  const n = normalize(fixCase($('#eBody').value));
+  const s = S.edit;
+  s.title = $('#eTitle').value.trim() || n.meta.title || 'Untitled';
+  s.artist = $('#eArtist').value.trim() || n.meta.artist || '';
+  s.key = $('#eKey').value.trim() || n.meta.key || detectKey(n.text);
+  s.capo = $('#eCapo').value.trim() || n.meta.capo || '';
+  s.notes = $('#eNotes').value.trim();
+  s.body = n.text;
+  return s;
+}
+let pvT;
+function updatePreview(){
+  clearTimeout(pvT);
+  pvT = setTimeout(() => {
+    if ($('#editorView').dataset.tab === 'chords') renderCE();
+  }, 60);
+  schedulePv();
+}
+function setTab(t){
+  $('#editorView').dataset.tab = t;
+  document.querySelectorAll('.etab').forEach(b => { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', b.dataset.tab === t); });
+  if (t === 'chords'){ applyCase(false); renderCE(); }
+}
+document.querySelectorAll('.etab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+
+/* ---------- Place chords: every line gets a chord row; tap to add, drag to move ---------- */
+function ceParse(text){
+  const L = text.split('\n'), rows = [];
+  const isWords = l => l != null && l.trim() && !looseChordLine(l) && !isTabLine(l) && !headerOf(l) && !headerWithChords(l);
+  for (let i = 0; i < L.length; i++){
+    const ln = L[i];
+    if (!ln.trim()){ rows.push({ t: 'blank' }); continue; }
+    if (headerOf(ln) || headerWithChords(ln)){ rows.push({ t: 'raw', text: ln }); continue; }
+    if (isTabLine(ln)){ rows.push({ t: 'raw', tab: true, text: ln }); continue; }
+    if (looseChordLine(ln)){
+      const chords = []; ln.replace(/\S+/g, (tok, idx) => { chords.push({ col: idx, name: looseChord(tok) ? fixChordCase(tok) : tok }); });
+      if (isWords(L[i + 1])){ rows.push({ t: 'line', chords, lyric: L[i + 1] }); i++; }
+      else rows.push({ t: 'line', chords, lyric: null });
+      continue;
+    }
+    rows.push({ t: 'line', chords: [], lyric: ln });
+  }
+  return rows;
+}
+function chordLineOf(chords){
+  let out = '';
+  chords.slice().sort((a, b) => a.col - b.col).forEach(c => { let p = Math.max(0, Math.round(c.col)); if (out.length && p <= out.length) p = out.length + 1; out = out.padEnd(p) + c.name; });
+  return out;
+}
+function ceSerialize(rows){
+  const out = [];
+  rows.forEach(r => {
+    if (r.t === 'blank') out.push('');
+    else if (r.t === 'raw') out.push(r.text);
+    else {
+      if (r.chords.length) out.push(chordLineOf(r.chords));
+      if (r.lyric != null) out.push(r.lyric);
+    }
+  });
+  return out.join('\n');
+}
+function renderCE(){
+  const pane = $('#ePreview'), rows = S.ce = ceParse($('#eBody').value);
+  if (!rows.some(r => r.t === 'line')){
+    pane.innerHTML = '<p class="ce-empty">No words yet. Switch to <b>Type words</b>, type or paste the song, then come back here to place chords.</p>';
+    return;
+  }
+  pane.innerHTML = rows.map((r, i) => {
+    if (r.t === 'blank') return '<div class="ce-gap"></div>';
+    if (r.t === 'raw' && r.tab) return `<div class="ce-tab">${esc(r.text)}</div>`;
+    if (r.t === 'raw') return `<div class="ce-sec">${esc(headerOf(r.text) || r.text.trim())}</div>`;
+    return `<div class="ce-line" data-i="${i}"><div class="ce-crow">${r.chords.map((c, k) => `<span class="ce-chip" data-i="${i}" data-k="${k}" style="left:${c.col}ch">${esc(c.name)}</span>`).join('')}</div><div class="ce-ly">${r.lyric != null ? (esc(r.lyric) || ' ') : '<span class="ce-none">chords only</span>'}</div></div>`;
+  }).join('') + '<span class="ce-probe" id="ceProbe">0000000000</span>';
+}
+function commitCE(){
+  schedulePv();
+  const ta = $('#eBody'), sx = $('#ePreview').scrollLeft, sy = window.scrollY;
+  ta.value = ceSerialize(S.ce);
+  renderCE();
+  $('#ePreview').scrollLeft = sx; window.scrollTo(window.scrollX, sy);
+}
+const chPx = () => { const p = $('#ceProbe'); return p ? p.getBoundingClientRect().width / 10 : 10; };
+function colFromX(line, x){
+  const r = line.querySelector('.ce-ly').getBoundingClientRect();
+  return Math.max(0, Math.round((x - r.left) / chPx() - 0.35));
+}
+$('#ePreview').addEventListener('click', e => {
+  if (e.target.closest('.ce-chip') || ceDrag || ceJustDragged) return;
+  const line = e.target.closest('.ce-line'); if (!line) return;
+  openPicker(+line.dataset.i, null, colFromX(line, e.clientX));
+});
+let ceDrag = null, ceJustDragged = false;
+$('#ePreview').addEventListener('pointerdown', e => {
+  const chip = e.target.closest('.ce-chip'); if (!chip) return;
+  e.preventDefault();
+  try { chip.setPointerCapture(e.pointerId); } catch {}
+  const i = +chip.dataset.i, k = +chip.dataset.k;
+  ceDrag = { chip, i, k, x0: e.clientX, y0: e.clientY, col0: S.ce[i].chords[k].col, col: S.ce[i].chords[k].col, moved: false, cw: chPx(), target: null };
+});
+$('#ePreview').addEventListener('pointermove', e => {
+  const d = ceDrag; if (!d) return;
+  const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+  if (!d.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+  if (!d.moved){ d.moved = true; d.chip.classList.add('drag'); }
+  d.col = Math.max(0, d.col0 + Math.round(dx / d.cw));
+  d.chip.style.left = d.col + 'ch';
+  d.chip.style.transform = `translateY(${dy}px)`;
+  const el = document.elementFromPoint(e.clientX, e.clientY), line = el && el.closest('.ce-line');
+  if (d.target && d.target !== line) d.target.classList.remove('target');
+  d.target = line; if (line && +line.dataset.i !== d.i) line.classList.add('target');
+});
+function endDrag(e, cancel){
+  const d = ceDrag; if (!d) return; ceDrag = null;
+  if (d.target) d.target.classList.remove('target');
+  if (cancel){ renderCE(); return; }
+  if (!d.moved){ openPicker(d.i, d.k, d.col0); return; }
+  ceJustDragged = true; setTimeout(() => ceJustDragged = false, 50);
+  const ti = d.target ? +d.target.dataset.i : d.i;
+  const c = S.ce[d.i].chords.splice(d.k, 1)[0]; c.col = d.col;
+  (S.ce[ti] && S.ce[ti].t === 'line' ? S.ce[ti] : S.ce[d.i]).chords.push(c);
+  commitCE();
+}
+$('#ePreview').addEventListener('pointerup', e => endDrag(e, false));
+$('#ePreview').addEventListener('pointercancel', e => endDrag(e, true));
+
+const ROOTS = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const QUALS = ['', 'm', '7', 'm7', 'maj7', 'sus2', 'sus4', 'add9', '6', 'dim'];
+function openPicker(i, k, col){
+  const row = S.ce[i]; if (!row) return;
+  const existing = k != null ? row.chords[k].name : null;
+  const used = [...new Set(S.ce.flatMap(r => r.t === 'line' ? r.chords.map(c => c.name) : []).filter(isChord))].slice(0, 16);
+  const pm = existing && existing.match(/^([A-G][#b]?)(.*)$/);
+  let root = pm ? pm[1] : null, qual = pm ? pm[2] : '';
+  if (root && !ROOTS.includes(root)) root = { 'Db':'C#', 'D#':'Eb', 'Gb':'F#', 'G#':'Ab', 'A#':'Bb' }[root] || root;
+  modal(`<h3>${existing ? 'Change chord' : 'Add chord'}</h3>
+    <p>${row.lyric ? 'Over: <b>' + esc(row.lyric.slice(col, col + 14).trim() || '(end of line)') + '</b>' : 'Chords-only line'}</p>
+    ${used.length ? `<label>Already in this song</label><div class="pk-row">${used.map(c => `<button type="button" class="btn pk-use" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''}
+    <label>Root</label><div class="pk-row">${ROOTS.map(r => `<button type="button" class="btn pk-root" data-r="${r}">${r}</button>`).join('')}</div>
+    <label>Type</label><div class="pk-row">${QUALS.map(q => `<button type="button" class="btn pk-q" data-q="${q}">${q || 'major'}</button>`).join('')}</div>
+    <div class="pk-prev">Chord <b id="pkName">—</b></div>
+    <div class="row">${existing ? '<button type="button" class="btn danger" id="pkDel">Remove</button>' : ''}<button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" id="pkOk" disabled>${existing ? 'Change' : 'Place chord'}</button></div>`);
+  const sync = () => {
+    document.querySelectorAll('.pk-root').forEach(b => b.classList.toggle('on', b.dataset.r === root));
+    document.querySelectorAll('.pk-q').forEach(b => b.classList.toggle('on', b.dataset.q === qual));
+    $('#pkName').textContent = root ? root + qual : '—';
+    $('#pkOk').disabled = !root;
+  };
+  const place = name => {
+    if (k != null) row.chords[k].name = name; else row.chords.push({ col, name });
+    closeModal(); commitCE();
+  };
+  document.querySelectorAll('.pk-root').forEach(b => b.onclick = () => { root = b.dataset.r; sync(); });
+  document.querySelectorAll('.pk-q').forEach(b => b.onclick = () => { qual = b.dataset.q; sync(); });
+  document.querySelectorAll('.pk-use').forEach(b => b.onclick = () => place(b.dataset.c));
+  $('#pkOk').onclick = () => root && place(root + qual);
+  if (existing) $('#pkDel').onclick = () => { row.chords.splice(k, 1); closeModal(); commitCE(); };
+  sync();
+}
+function updateUG(){
+  const q = [$('#eTitle').value, $('#eArtist').value].join(' ').trim();
+  $('#eUG').href = q ? 'https://www.ultimate-guitar.com/search.php?search_type=title&value=' + encodeURIComponent(q) : 'https://www.ultimate-guitar.com/';
+}
+function status(msg, err){ const el = $('#eStatus'); el.textContent = msg; el.classList.toggle('err', !!err); }
+let delT;
+function resetDelete(){ clearTimeout(delT); $('#eDelete').textContent = 'Delete'; $('#eDelete').dataset.arm = ''; }
+
+function placeChords(arr, len){
+  let out = '';
+  (arr || []).filter(x => x && typeof x.c === 'string' && isChord(x.c.trim())).sort((a, b) => a.at - b.at).forEach(({ at, c }) => {
+    let p = Math.max(0, Math.min(Math.round(Number(at) || 0), len));
+    if (out.length && p <= out.length) p = out.length + 1;
+    out = out.padEnd(p) + c.trim();
+  });
+  return out;
+}
+async function addChordsAI(){
+  if (!S.sample) return;
+  const n = normalize($('#eBody').value); $('#eBody').value = n.text;
+  const lines = n.text.split('\n');
+  const targets = [];
+  lines.forEach((ln, i) => { if (isLyric(ln) && !(i > 0 && isChordLine(lines[i - 1]))) targets.push(i); });
+  if (!targets.length){ status('Every line of words already has chords above it.'); return; }
+  const hints = [];
+  let sec = '';
+  lines.forEach(ln => { const h = headerOf(ln); if (h) sec = h; else if (isChordLine(ln)) hints.push((sec ? sec + ': ' : '') + ln.trim().replace(/\s+/g, ' ')); });
+  const title = $('#eTitle').value.trim(), artist = $('#eArtist').value.trim(), key = $('#eKey').value.trim();
+  const easy = $('#eLevel').value === 'easy';
+  const prompt = `You are helping a guitarist put chords over the words of a song sheet.
+Song: ${title || '(untitled)'}${artist ? ' by ' + artist : ''}.${key ? ' Key: ' + key + '.' : ''}
+${hints.length ? 'Chords already written elsewhere in the sheet (use them as the guide):\n' + hints.slice(0, 30).join('\n') : ''}
+
+Below are numbered lines of words the guitarist typed. For each line, give the chords and the 0-based character position in THAT line where each chord change lands (usually the start of the syllable where the chord changes).
+If you recognize the song, use the chords it is commonly played with on guitar. If not, write a simple, musical progression that suits the lines${key ? ' in ' + key : ' in a comfortable guitar key'}.
+${easy ? 'Use beginner open chords only: C, G, D, A, E, Am, Em, Dm, G7, D7, E7, A7 (suggest a capo if needed).' : 'Use standard guitar chord names (e.g. C, Am, G7, Cmaj7, D/F#).'}
+Do not repeat the words. Reply with JSON only, shaped exactly like:
+{"key":"G","capo":0,"lines":[{"n":1,"chords":[{"at":0,"c":"G"},{"at":14,"c":"C"}]}]}
+Include every line number.
+
+${targets.map((i, k) => (k + 1) + '. ' + lines[i]).join('\n')}`;
+  const btn = $('#eAI'); btn.disabled = true; status('Claude is working out the chords…');
+  try {
+    const res = await S.sample.json(prompt, { modelTier: 'default', cache: false });
+    const byN = new Map((res && res.lines || []).map(x => [Number(x.n), x.chords]));
+    const out = []; let added = 0;
+    lines.forEach((ln, i) => {
+      const k = targets.indexOf(i);
+      if (k >= 0){ const c = placeChords(byN.get(k + 1), ln.length); if (c){ out.push(c); added++; } }
+      out.push(ln);
+    });
+    $('#eBody').value = out.join('\n');
+    if (res && res.key && !$('#eKey').value.trim()) $('#eKey').value = String(res.key);
+    if (res && Number(res.capo) > 0 && !$('#eCapo').value.trim()) $('#eCapo').value = String(res.capo);
+    updatePreview();
+    status(added ? `Added chords to ${added} line${added > 1 ? 's' : ''}. Play it through and fix anything by ear, then Save.` : 'Claude did not return usable chords. Try again.', !added);
+  } catch (e){
+    status(e && e.code === 'not_granted' ? 'Claude access was declined for this page.' : e && e.code === 'rate_limited' ? 'Too many requests. Wait a minute and try again.' : 'Could not get chords: ' + (e && (e.message || e.code) || 'unknown error'), true);
+  } finally { btn.disabled = false; }
+}
+
+/* ---------- Get chords for a song (no lyrics) ---------- */
+function getChordsDialog(){
+  modal(`<div class="mtop"><button class="btn mx" type="button" data-close aria-label="Close">✕</button><h3>Find a song online</h3></div>
+    <p>Type the song, then <b>Search Ultimate Guitar</b>. Copy the chords there, come back and tap <b>Paste a song</b>.${S.sample ? ' Or let Claude write out the chords.' : ''}</p>
+    <div class="fields"><div><label for="gTitle">Song</label><input id="gTitle" type="text" autocomplete="off"></div>
+    <div><label for="gArtist">Artist</label><input id="gArtist" type="text" autocomplete="off"></div></div>
+    <label for="gLevel">Chords</label><select id="gLevel"><option value="std">As usually played</option><option value="easy">Beginner (capo allowed)</option></select>
+    <p id="gStatus" class="status"></p>
+    <div class="row center"><a id="gUG" class="btn primary" href="https://www.ultimate-guitar.com/" target="_blank" rel="noopener">Search Ultimate Guitar ↗</a>
+    <button id="gPaste" class="btn chordy" type="button">Paste a song</button>
+    <button id="gGo" class="btn chordy" type="button"${S.sample ? '' : ' hidden'}>Chords from Claude</button></div>`);
+  $('#gLevel').hidden = $('label[for=gLevel]').hidden = !S.sample;
+  $('#gPaste').onclick = () => { closeModal(); openPaste('lib'); };
+  const ug = () => { const q = ($('#gTitle').value + ' ' + $('#gArtist').value).trim(); $('#gUG').href = q ? 'https://www.ultimate-guitar.com/search.php?search_type=title&value=' + encodeURIComponent(q) : 'https://www.ultimate-guitar.com/'; };
+  $('#gTitle').addEventListener('input', ug); $('#gArtist').addEventListener('input', ug);
+  $('#gTitle').addEventListener('keydown', e => { if (e.key === 'Enter'){ ug(); window.open($('#gUG').href, '_blank', 'noopener'); } });
+  $('#gTitle').focus();
+  $('#gGo').onclick = async () => {
+    const title = $('#gTitle').value.trim(), artist = $('#gArtist').value.trim();
+    if (!title){ $('#gStatus').textContent = 'Type the song name first.'; return; }
+    const easy = $('#gLevel').value === 'easy';
+    $('#gGo').disabled = true; $('#gStatus').classList.remove('err'); $('#gStatus').textContent = 'Claude is looking up the progression…';
+    const prompt = `Give the guitar chord progression for the song "${title}"${artist ? ' by ' + artist : ''}, as it is commonly played.
+${easy ? 'Use beginner open chords with a capo if that makes it easier.' : 'Use the usual voicings players use.'}
+Do NOT include any lyrics. For each section in song order give the chords in order, using | for bar lines and (x2) style repeats where it helps.
+Reply with JSON only:
+{"found":true,"artist":"","key":"G","capo":0,"sections":[{"name":"Intro","chords":"| G | C | G | D |"},{"name":"Verse","chords":"G C G D (x2)"}],"tip":"one short playing tip, e.g. strum pattern"}
+If you do not know this song well enough, reply {"found":false,"sections":[]}.`;
+    try {
+      const r = await S.sample.json(prompt, { modelTier: 'default' });
+      if (!r || !r.found || !Array.isArray(r.sections) || !r.sections.length){ $('#gStatus').textContent = "Claude doesn't know this one well enough. Try Ultimate Guitar, or type the words and use Add chords with Claude."; $('#gGo').disabled = false; return; }
+      const body = r.sections.map(s => {
+        const toks = String(s.chords || '').trim().split(/\s+/).filter(Boolean);
+        return '[' + String(s.name || 'Section') + ']\n' + toks.join('   ');
+      }).join('\n\n');
+      closeModal();
+      openEditor(null, { title, artist: artist || r.artist || '', key: r.key || '', capo: Number(r.capo) > 0 ? String(r.capo) : '', notes: r.tip || '', body });
+      status("Chords from Claude's knowledge of the song. Check them by ear, paste in the words if you want them, then Save.");
+    } catch (e){
+      $('#gStatus').classList.add('err');
+      $('#gStatus').textContent = e && e.code === 'rate_limited' ? 'Too many requests. Wait a minute and try again.' : 'Could not get chords: ' + (e && (e.message || e.code) || 'unknown error');
+      $('#gGo').disabled = false;
+    }
+  };
+}
+
+/* ---------- Import (PDF, text, ChordPro, backup) ---------- */
+let importTarget = 'lib';
+function pickFile(target){ importTarget = target; $('#fileIn').value = ''; $('#fileIn').click(); }
+function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load the PDF reader')); document.head.appendChild(s); }); }
+let pdfReady;
+function loadPdf(){
+  const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  pdfReady = pdfReady || (async () => {
+    await loadScript(base + 'pdf.min.js');
+    await loadScript(base + 'pdf.worker.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+  })();
+  return pdfReady;
+}
+async function pdfToText(buf){
+  await loadPdf();
+  const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+  const parts = [];
+  for (let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    const items = tc.items.filter(it => it.str && it.str.trim()).map(it => ({ s: it.str, x: it.transform[4], y: it.transform[5], w: it.width, h: Math.abs(it.transform[3]) || it.height || 10 }));
+    if (!items.length) continue;
+    parts.push(itemsToText(items));
+  }
+  return parts.join('\n\n');
+}
+/* lay out positioned words (y grows upward) as text, keeping chords over the right words */
+function itemsToText(items){
+  const parts = [];
+    const cws = items.filter(i => i.s.trim().length >= 3).map(i => i.w / i.s.length).sort((a, b) => a - b);
+    const cw = cws.length ? cws[Math.floor(cws.length / 2)] : 5;
+    // find vertical gutters → columns
+    const minX = Math.min(...items.map(i => i.x)), maxX = Math.max(...items.map(i => i.x + i.w));
+    const bins = Math.max(1, Math.ceil((maxX - minX) / cw)); const cov = new Uint8Array(bins + 1);
+    items.forEach(i => { const a = Math.floor((i.x - minX) / cw), b = Math.ceil((i.x + i.w - minX) / cw); for (let k = Math.max(0, a); k <= Math.min(bins, b); k++) cov[k] = 1; });
+    const starts = [minX]; let run = 0;
+    for (let k = 0; k <= bins; k++){
+      if (!cov[k]) run++;
+      else { if (run >= 4 && k > bins * 0.15) starts.push(minX + k * cw); run = 0; }
+    }
+    for (let c = 0; c < starts.length; c++){
+      const x0 = starts[c], x1 = starts[c + 1] ?? Infinity;
+      const its = items.filter(i => i.x >= x0 - cw && i.x < x1 - cw);
+      its.sort((a, b) => b.y - a.y || a.x - b.x);
+      const rows = [];
+      its.forEach(i => { const r = rows[rows.length - 1]; if (r && Math.abs(r.y - i.y) < i.h * 0.45) r.items.push(i); else rows.push({ y: i.y, h: i.h, items: [i] }); });
+      const gaps = rows.slice(1).map((r, k) => rows[k].y - r.y).sort((a, b) => a - b);
+      const med = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 12;
+      const out = [];
+      rows.forEach((r, k) => {
+        if (k && rows[k - 1].y - r.y > med * 1.6) out.push('');
+        r.items.sort((a, b) => a.x - b.x);
+        let line = '';
+        r.items.forEach(i => { const col = Math.max(0, Math.round((i.x - x0) / cw)); if (line.length && col <= line.length) line += line.endsWith(' ') ? '' : ' '; else line = line.padEnd(col); line += i.s; });
+        out.push(line.replace(/\s+$/, ''));
+      });
+      parts.push(out.join('\n'));
+    }
+  return parts.join('\n\n');
+}
+async function handleFile(file){
+  const name = file.name.replace(/\.[^.]+$/, '');
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  try {
+    if (ext === 'json'){
+      const data = JSON.parse(await file.text());
+      const list = Array.isArray(data) ? data : data.songs;
+      if (!Array.isArray(list)) throw new Error('This file is not a Magic Chord backup.');
+      let n = 0;
+      for (const s of list){ if (s && s.body != null){ await saveSong({ ...clean(s), id: s.id || uid() }); n++; } }
+      toast(`Restored ${n} song${n === 1 ? '' : 's'}.`); show('lib'); return;
+    }
+    let text, meta = {};
+    if (ext === 'pdf' || file.type === 'application/pdf'){
+      toast('Reading the PDF…');
+      text = await pdfToText(await file.arrayBuffer());
+      const ls = text.split('\n');
+      const firstIdx = ls.findIndex(l => l.trim());
+      if (firstIdx >= 0 && ls[firstIdx].trim().toLowerCase() === name.trim().toLowerCase()) ls.splice(firstIdx, 1);
+      text = ls.join('\n');
+      if (!text.trim()) throw new Error('No text found in that PDF (it may be a scanned image).');
+    } else text = await file.text();
+    const n = normalize(text); meta = n.meta;
+    const preset = { title: meta.title || name, artist: meta.artist || '', key: meta.key || '', capo: meta.capo || '', body: n.text };
+    if (importTarget === 'edit' && S.view === 'edit'){
+      $('#eBody').value = n.text;
+      if (!$('#eTitle').value.trim()) $('#eTitle').value = preset.title;
+      if (!$('#eArtist').value.trim()) $('#eArtist').value = preset.artist;
+      updatePreview(); updateUG();
+      status('Imported. Check the chord spacing, then Save.');
+    } else {
+      openEditor(null, preset);
+      status('Imported from ' + file.name + '. Check the chord spacing, then Save.');
+    }
+  } catch (e){ toast(e.message || 'Could not read that file.'); }
+}
+
+/* ---------- Paste a song: a copied PDF, a picture/screenshot, or the words ---------- */
+let pasteTarget = 'lib', pasteBusy = false;
+function pasteStatus(msg, err){ const el = $('#pzStat'); if (el){ el.textContent = msg; el.classList.toggle('err', !!err); } else if (msg && err) toast(msg); }
+function openPaste(target){
+  pasteTarget = target; pasteBusy = false;
+  modal(`<div class="mtop"><button type="button" class="btn mx" data-close aria-label="Close">✕</button><h3>Paste a song</h3></div>
+    <p>Copy the song first: the PDF itself, a screenshot of it, or the words. Then tap the box and choose <b>Paste</b>. Nothing gets saved to your Files.</p>
+    <div id="pzZone" class="pzone" contenteditable="true" role="textbox" aria-label="Paste the song here" data-ph="Tap here, then tap Paste" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="row center"><button id="pzBtn" class="btn primary" type="button">Paste from clipboard</button></div>
+    <p id="pzStat" class="status" role="status"></p>`);
+  $('#mCard').dataset.sticky = '1';
+  const zone = $('#pzZone');
+  zone.addEventListener('paste', e => { e.preventDefault(); fromClipData(e.clipboardData); });
+  zone.addEventListener('input', () => {
+    const img = zone.querySelector('img'), txt = zone.innerText || '';
+    if (!img && txt.length < 25 && !txt.includes('\n')) return;
+    zone.innerHTML = '';
+    if (img) runPaste(async () => fromImage(await (await fetch(img.src)).blob()));
+    else runPaste(() => finishPaste(txt, 'words'));
+  });
+  $('#pzBtn').onclick = fromClipboardApi;
+  setTimeout(() => zone.focus(), 50);
+}
+async function runPaste(fn){
+  if (pasteBusy) return; pasteBusy = true;
+  const b = $('#pzBtn'); if (b) b.disabled = true;
+  try { await fn(); }
+  catch (e){ pasteStatus(e && e.message ? e.message : 'Could not read that.', true); }
+  finally { pasteBusy = false; const b2 = $('#pzBtn'); if (b2) b2.disabled = false; }
+}
+function fromClipData(dt){
+  if (!dt){ pasteStatus('Nothing came through. Try Paste from clipboard.', true); return; }
+  const files = [...(dt.files || [])];
+  if (!files.length) for (const it of dt.items || []) if (it.kind === 'file'){ const f = it.getAsFile(); if (f) files.push(f); }
+  const pdf = files.find(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''));
+  const img = files.find(f => /^image\//.test(f.type));
+  const text = dt.getData('text/plain') || '';
+  if (pdf) return runPaste(() => fromPdf(pdf));
+  if (text.trim()) return runPaste(() => finishPaste(text, 'words'));
+  if (img) return runPaste(() => fromImage(img));
+  pasteStatus("Nothing I can read came through. iPhone doesn't always hand a copied PDF to web pages. Take a screenshot of the song, copy it, and paste that instead.", true);
+}
+async function fromClipboardApi(){
+  if (!navigator.clipboard || !navigator.clipboard.read){ pasteStatus('Tap the box above and choose Paste instead.', true); return; }
+  runPaste(async () => {
+    let items;
+    try { items = await navigator.clipboard.read(); }
+    catch { throw new Error('This page can’t read the clipboard directly. Tap the box above and choose Paste instead.'); }
+    const find = re => { for (const it of items){ const t = it.types.find(x => re.test(x)); if (t) return { it, t }; } return null; };
+    let hit;
+    if ((hit = find(/^application\/pdf$|com\.adobe\.pdf/))) return fromPdf(await hit.it.getType(hit.t));
+    if ((hit = find(/^text\/plain$/))){ const t = await (await hit.it.getType(hit.t)).text(); if (t.trim()) return finishPaste(t, 'words'); }
+    if ((hit = find(/^image\//))) return fromImage(await hit.it.getType(hit.t));
+    throw new Error('The clipboard is empty, or has something I can’t read. Copy the song again.');
+  });
+}
+async function fromPdf(blob){
+  pasteStatus('Reading the PDF…');
+  let text = await pdfToText(await blob.arrayBuffer());
+  let how = 'PDF';
+  if (!text.trim()){
+    pasteStatus('This PDF is a picture. Reading the words off it…');
+    text = await imagesToText(await pdfPages(await blob.arrayBuffer()));
+    how = 'picture';
+  }
+  finishPaste(text, how);
+}
+async function pdfPages(buf){
+  await loadPdf();
+  const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise, out = [];
+  for (let p = 1; p <= Math.min(pdf.numPages, 6); p++){
+    const page = await pdf.getPage(p), vp = page.getViewport({ scale: 2.5 });
+    const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+    const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise; out.push(cv);
+  }
+  return out;
+}
+async function fromImage(blob){ pasteStatus('Reading the words off the picture…'); finishPaste(await imagesToText([blob]), 'picture'); }
+let ocrReady;
+function loadOcr(){
+  ocrReady = ocrReady || loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js').catch(() => { ocrReady = null; throw new Error('Could not load the picture reader. Check your connection and try again.'); });
+  return ocrReady;
+}
+/* Claude reads the picture: much better at chords than plain text recognition */
+async function toJpeg(src){
+  let w, h, draw;
+  if (src instanceof HTMLCanvasElement){ w = src.width; h = src.height; draw = src; }
+  else { const url = URL.createObjectURL(src); try { draw = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Could not open that picture.')); i.src = url; }); } finally { setTimeout(() => URL.revokeObjectURL(url), 5000); } w = draw.naturalWidth; h = draw.naturalHeight; }
+  const sc = Math.min(1, 2000 / Math.max(w, h)), c = document.createElement('canvas');
+  c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(draw, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+}
+async function claudeReads(srcs){
+  if (!S.sample) return null;
+  try { const lim = S.sample.limits ? await S.sample.limits() : null; if (lim && !lim.images) return null; } catch { return null; }
+  const images = [];
+  for (const s of srcs.slice(0, 6)) images.push(await toJpeg(s));
+  pasteStatus('Claude is reading the song…');
+  const prompt = `These images are pages of a guitar chord sheet the user owns. Copy it out as plain text exactly as written.
+Rules:
+- First line: the song title. Second line: the artist, only if the sheet shows one. Then a blank line.
+- Put each line of chords on its own line directly above its line of words, using spaces so every chord sits over the same letter it sits over in the image.
+- Keep section names (Intro, Verse, Chorus, etc.) as [Verse], [Chorus] on their own line. Leave a blank line between sections.
+- Keep the words and chords exactly as written, in the original language. Do not add, fix or translate anything.
+- Reply with the text only: no comments, no code fences.`;
+  const r = await S.sample(prompt, { images, modelTier: 'default', cache: false, onText: ({ text }) => { const n = text.split('\n').length; pasteStatus('Claude is reading the song… ' + n + ' lines'); } });
+  return String(r && r.text || '').replace(/^```[a-z]*\n?|```\s*$/gim, '').replace(/\s+$/, '');
+}
+async function imagesToText(srcs){
+  try { const t = await claudeReads(srcs); if (t && t.trim()) return t; }
+  catch (e){ if (e && e.code === 'rate_limited') throw new Error('Too many requests. Wait a minute and try again.'); }
+  pasteStatus('Reading the words…');
+  await Promise.race([loadOcr(), new Promise((_, rej) => setTimeout(() => rej(new Error('The picture reader could not load here.')), 20000))]);
+  const worker = await Promise.race([new Promise((_, rej) => setTimeout(() => rej(new Error('The picture reader could not start here. Make sure Claude is allowed for this page, then try again.')), 25000)), window.Tesseract.createWorker(['eng', 'spa'], 1, { logger: m => { if (m.status === 'recognizing text') pasteStatus('Reading the words… ' + Math.round(m.progress * 100) + '%'); } })]);
+  try {
+    const parts = [];
+    for (const src of srcs){
+      const { data } = await worker.recognize(src);
+      const items = (data.words || []).filter(w => w.text && w.text.trim() && w.confidence > 15)
+        .map(w => ({ s: w.text, x: w.bbox.x0, y: -w.bbox.y1, w: w.bbox.x1 - w.bbox.x0, h: w.bbox.y1 - w.bbox.y0 }));
+      if (items.length) parts.push(itemsToText(items));
+    }
+    return parts.join('\n\n');
+  } finally { try { await worker.terminate(); } catch {} }
+}
+function titleFromTop(text, how){
+  const L = text.split('\n'), i = L.findIndex(l => l.trim());
+  const plain = l => l && l.trim() && l.trim().length <= 45 && !isChordLine(l) && !isTabLine(l) && !headerOf(l) && !/^\s*\[/.test(l);
+  // Claude was asked for: title, artist, blank line
+  if (how === 'picture' && i >= 0 && plain(L[i]) && plain(L[i + 1]) && !(L[i + 2] || '').trim()){ const t = L[i].trim(), a = L[i + 1].trim().replace(/^by\s+/i, ''); L.splice(i, 2); return { title: t, artist: a, text: L.join('\n').replace(/^\n+/, '') }; }
+  if (i >= 0 && plain(L[i]) && !(L[i + 1] || '').trim()){ const t = L[i].trim(); L.splice(i, 1); return { title: t, text: L.join('\n').replace(/^\n+/, '') }; }
+  return { text };
+}
+function chordsLookSquashed(text){
+  const L = text.split('\n'); let tot = 0, bad = 0;
+  for (let i = 0; i < L.length - 1; i++){
+    if (!isChordLine(L[i]) || !isLyric(L[i + 1])) continue;
+    tot++;
+    const c = L[i].trim();
+    if (c.split(/\s+/).length >= 2 && !/\s{2,}/.test(c) && L[i + 1].trim().length > c.length * 1.6) bad++;
+  }
+  return tot > 0 && bad / tot > 0.5;
+}
+function finishPaste(raw, how){
+  const n = normalize(String(raw || '').replace(/ /g, ' '));
+  let body = n.text; const meta = { ...n.meta };
+  if (!meta.title){
+    const t = titleFromTop(body, how);
+    if (t.artist && !meta.artist) meta.artist = t.artist;
+    if (t.title){ body = t.text; const m = t.title.match(/^(.*?)\s+[-–—]\s+(.*)$/); meta.title = m ? m[1] : t.title; if (m && !meta.artist) meta.artist = m[2]; }
+  }
+  if (!body.trim()) throw new Error(how === 'words' ? 'That paste had no words in it.' : 'No words found in that ' + how + '.');
+  const lead = { words: 'Pasted.', PDF: 'Read the PDF.', picture: 'Read the picture. It can misread a word or chord now and then.' }[how] || 'Pasted.';
+  const msg = lead + ' ' + (chordsLookSquashed(body) ? 'The chords lost their spacing: drag each one over the right word, then Save.' : 'Check that the chords sit over the right words, then Save.');
+  closeModal();
+  if (pasteTarget === 'edit' && S.view === 'edit'){
+    const ta = $('#eBody');
+    if (!ta.value.trim()) ta.value = body;
+    else ta.setRangeText('\n\n' + body + '\n', ta.selectionStart, ta.selectionEnd, 'end');
+    if (!$('#eTitle').value.trim() && meta.title) $('#eTitle').value = meta.title;
+    if (!$('#eArtist').value.trim() && meta.artist) $('#eArtist').value = meta.artist;
+    if (!$('#eKey').value.trim()) $('#eKey').value = meta.key || detectKey(ta.value);
+    if (!$('#eCapo').value.trim() && meta.capo) $('#eCapo').value = meta.capo;
+    updateUG(); setTab('chords'); status(msg);
+  } else {
+    openEditor(null, { title: meta.title || '', artist: meta.artist || '', key: meta.key || detectKey(body), capo: meta.capo || '', body });
+    setTab('chords'); status(msg);
+  }
+}
+
+/* ---------- Export ---------- */
+async function offerFile(filename, data, label){
+  if (S.downloads){
+    try { await S.downloads.save({ filename, data }); return; }
+    catch (e){ if (e && (e.code === 'declined' || e.code === 'cancelled' || e.code === 'aborted')) return; }
+  }
+  modal(`<h3>${esc(label)}</h3><p>Copy this text and keep it in a note or file.</p>
+    <textarea id="mText" readonly>${esc(data)}</textarea>
+    <div class="row"><button class="btn" type="button" data-close>Close</button><button id="mCopy" class="btn primary" type="button">Copy</button></div>`);
+  $('#mCopy').onclick = () => {
+    const ta = $('#mText');
+    navigator.clipboard?.writeText(data).then(() => toast('Copied.')).catch(() => { ta.focus(); ta.select(); toast('Selected — press copy.'); });
+  };
+}
+const songText = s => [s.title, s.artist && 'by ' + s.artist, [s.key && 'Key ' + s.key, s.capo && 'Capo ' + s.capo].filter(Boolean).join(' · ')].filter(Boolean).join('\n') + '\n\n' + (s.body || '') + '\n';
+
+/* ---------- Modal + toast ---------- */
+function modal(html){ $('#mCard').dataset.sticky = ''; $('#mCard').innerHTML = html; $('#modal').hidden = false; }
+function closeModal(){ $('#modal').hidden = true; $('#mCard').innerHTML = ''; }
+$('#modal').addEventListener('click', e => { if (e.target.closest('[data-close]') || (e.target.id === 'modal' && !$('#mCard').dataset.sticky)) closeModal(); });
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3800); }
+
+/* ---------- Wiring ---------- */
+$('#lSearch').addEventListener('input', renderLib);
+$('#lList').addEventListener('click', e => { const b = e.target.closest('.song'); if (b) openPlayer(b.dataset.id); });
+$('#lNew').onclick = () => openEditor(null);
+$('#lGet').onclick = getChordsDialog;
+$('#lImport').onclick = () => pickFile('lib');
+$('#lPaste').onclick = () => openPaste('lib');
+$('#ePaste').onclick = () => openPaste('edit');
+/* a PDF or picture pasted straight into the words box goes through the same reader */
+$('#eBody').addEventListener('paste', e => {
+  const dt = e.clipboardData; if (!dt) return;
+  const text = dt.getData('text/plain'); if (text && text.trim()) return;
+  const has = [...(dt.files || [])].some(f => f.type === 'application/pdf' || /^image\//.test(f.type));
+  if (!has) return;
+  e.preventDefault(); openPaste('edit'); fromClipData(dt);
+});
+$('#lBackup').onclick = () => {
+  const d = new Date(); const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  if (!S.songs.length){ toast('No songs of your own to back up yet.'); return; }
+  offerFile('magic-chord-backup-' + stamp + '.json', JSON.stringify({ app: 'songbook-stand', version: 1, songs: S.songs.map(s => ({ id: s.id, ...clean(s) })) }, null, 2), 'Backup');
+};
+$('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; if (f) handleFile(f); });
+
+$('#eBack').onclick = () => { show('lib'); renderLib(); };
+$('#eSave').onclick = async () => { const s = readEditor(); await saveSong(s); $('#eHead').textContent = 'Edit song'; $('#eDelete').hidden = false; $('#eBody').value = s.body; status('Saved.'); };
+$('#ePlay').onclick = async () => { const s = readEditor(); await saveSong(s); openPlayer(s.id); };
+$('#eImport').onclick = () => pickFile('edit');
+$('#eExport').onclick = () => { const s = readEditor(); offerFile((s.title || 'song').replace(/[\\/:*?"<>|]+/g, '') + '.txt', songText(s), s.title || 'Song'); };
+$('#eAI').onclick = addChordsAI;
+$('#eDelete').onclick = async () => {
+  const b = $('#eDelete');
+  if (!b.dataset.arm){ b.dataset.arm = '1'; b.textContent = 'Tap again to delete'; delT = setTimeout(resetDelete, 3500); return; }
+  resetDelete(); await deleteSong(S.edit.id); show('lib'); toast('Song deleted.');
+};
+['eTitle','eArtist','eKey','eCapo','eNotes'].forEach(id => $('#' + id).addEventListener('input', () => { updatePreview(); updateUG(); }));
+function autoFillFromPaste(){
+  const ta = $('#eBody'), n = normalize(ta.value);
+  let changed = false;
+  if (n.meta.title && !$('#eTitle').value.trim()){ $('#eTitle').value = n.meta.title; changed = true; }
+  if (n.meta.artist && !$('#eArtist').value.trim()){ $('#eArtist').value = n.meta.artist; changed = true; }
+  if (n.meta.capo && !$('#eCapo').value.trim()) $('#eCapo').value = n.meta.capo;
+  const k = n.meta.key || detectKey(n.text);
+  if (k && !$('#eKey').value.trim()) $('#eKey').value = k;
+  if (changed){ ta.value = n.text; updateUG(); status('Filled in the title and artist from what you pasted. Check them, then Save.'); }
+}
+function applyCase(skipCaret){
+  const ta = $('#eBody'), a = ta.selectionStart, b = ta.selectionEnd;
+  const fixed = fixCase(ta.value, skipCaret ? a : null);
+  if (fixed !== ta.value){ ta.value = fixed; try { ta.setSelectionRange(a, b); } catch {} }
+}
+$('#eBody').addEventListener('input', e => {
+  const v = e.target.value;
+  if (/\[\/?(ch|tab)\]/i.test(v)){ e.target.value = normalize(v).text; }
+  if (e.inputType === 'insertFromPaste' || v.length > 80 && !$('#eTitle').value.trim()) autoFillFromPaste();
+  applyCase(true);
+  updatePreview(); updateChordBar();
+});
+$('#eBody').addEventListener('blur', () => { applyCase(false); updatePreview(); });
+
+/* ---------- Chord under the cursor: ▲ ▼ m, and ↑ ↓ keys on a selected chord ---------- */
+function chordAtCaret(){
+  const ta = $('#eBody'), v = ta.value, pos = ta.selectionStart;
+  const ls = v.lastIndexOf('\n', pos - 1) + 1; let le = v.indexOf('\n', pos); if (le < 0) le = v.length;
+  const line = v.slice(ls, le);
+  if (!looseChordLine(line)) return null;
+  const col = pos - ls, re = /\S+/g; let m;
+  while ((m = re.exec(line))){
+    if (col >= m.index && col <= m.index + m[0].length && looseChord(m[0]))
+      return { ls, le, line, start: m.index, end: m.index + m[0].length, tok: fixChordCase(m[0]) };
+  }
+  return null;
+}
+function replaceTok(line, s0, e0, nt){
+  let rest = line.slice(e0); const diff = nt.length - (e0 - s0);
+  if (diff > 0){ const sp = rest.match(/^ */)[0].length; rest = rest.slice(Math.min(diff, Math.max(0, sp - 1))); }
+  else if (diff < 0 && rest.trim()) rest = ' '.repeat(-diff) + rest;
+  return (line.slice(0, s0) + nt + rest).replace(/\s+$/, '');
+}
+function changeChord(fn){
+  const c = chordAtCaret(); if (!c) return;
+  const ta = $('#eBody'), nt = fn(c.tok); if (!nt || nt === c.tok && c.tok === c.line.slice(c.start, c.end)) return;
+  const nl = replaceTok(c.line, c.start, c.end, nt), st = ta.scrollTop, sy = window.scrollY;
+  ta.setRangeText(nl, c.ls, c.le, 'preserve');
+  ta.setSelectionRange(c.ls + c.start, c.ls + c.start + nt.length);
+  ta.scrollTop = st; window.scrollTo(window.scrollX, sy);
+  updatePreview(); updateChordBar();
+}
+function editorFlats(tok){
+  if (/^\(?[A-G]b/.test(tok)) return true;
+  if (/^\(?[A-G]#/.test(tok)) return false;
+  return prefersFlats({ key: $('#eKey').value, body: $('#eBody').value }, 0);
+}
+const stepChord = d => changeChord(t => {
+  const m = t.match(CH_PARTS); if (!m) return t;
+  return transposeChord(t, d, editorFlats(t));
+});
+const toggleMinor = () => changeChord(t => t.replace(/^(\(?[A-G][#b]?)(maj|m(?!aj))?/, (m, r, q) => r + (q === 'm' ? '' : 'm')));
+function updateChordBar(){
+  const c = S.view === 'edit' && document.activeElement === $('#eBody') ? chordAtCaret() : null;
+  $('#cbName').textContent = c ? c.tok : '—';
+  ['#cbDown','#cbUp','#cbMinor'].forEach(id => $(id).disabled = !c);
+  $('#cbHint').textContent = c ? 'Or select the chord and press ↑ ↓ on a keyboard' : 'Tap a chord in the song to change it';
+}
+function markSection(name){
+  const ta = $('#eBody'), lines = ta.value.split('\n');
+  const caret = ta.selectionStart; let li = ta.value.slice(0, caret).split('\n').length - 1;
+  if (!lines.length || (lines.length === 1 && !lines[0].trim())){ ta.value = '[' + name + (name === 'Verse' ? ' 1' : '') + ']\n'; updatePreview(); return; }
+  while (li < lines.length - 1 && !lines[li].trim()) li++;
+  let st = li; while (st > 0 && lines[st - 1].trim()) st--;
+  const hasHeader = !!headerOf(lines[st]);
+  let label = name;
+  if (name === 'Verse'){
+    const before = lines.slice(0, st).filter(l => { const h = headerOf(l); return h && /^verse/i.test(h); }).length;
+    label = 'Verse ' + (before + 1);
+  }
+  if (hasHeader) lines[st] = '[' + label + ']'; else lines.splice(st, 0, '[' + label + ']');
+  const off = lines.slice(0, st).join('\n').length + (st ? 1 : 0);
+  const st0 = ta.scrollTop;
+  ta.value = lines.join('\n');
+  try { ta.setSelectionRange(off + label.length + 3, off + label.length + 3); } catch {}
+  ta.scrollTop = st0;
+  updatePreview();
+}
+$('#addTab').addEventListener('pointerdown', e => e.preventDefault());
+$('#addTab').addEventListener('click', () => {
+  const ta = $('#eBody'), v = ta.value, pos = ta.selectionStart;
+  let le = v.indexOf('\n', pos); if (le < 0) le = v.length;
+  const staff = ['e','B','G','D','A','E'].map(n => n + '|' + '-'.repeat(24) + '|').join('\n');
+  const before = v.slice(0, le), after = v.slice(le);
+  const ins = (before.trim() ? '\n\n' : '') + staff + (after.trim() ? '\n' : '\n');
+  ta.value = before + ins + after.replace(/^\n/, '');
+  const at = before.length + (before.trim() ? 2 : 0) + 2;
+  try { ta.setSelectionRange(at, at + 1); } catch {}
+  updatePreview();
+});
+document.querySelectorAll('#secBar [data-sec]').forEach(b => {
+  b.addEventListener('pointerdown', e => e.preventDefault());
+  b.addEventListener('click', () => markSection(b.dataset.sec));
+});
+['#cbDown','#cbUp','#cbMinor'].forEach(id => $(id).addEventListener('pointerdown', e => e.preventDefault())); // keep the cursor in the song
+$('#cbUp').onclick = () => stepChord(1);
+$('#cbDown').onclick = () => stepChord(-1);
+$('#cbMinor').onclick = toggleMinor;
+$('#eBody').addEventListener('keydown', e => {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  const ta = e.target; if (ta.selectionStart === ta.selectionEnd) return;
+  const c = chordAtCaret();
+  if (c && ta.selectionStart === c.ls + c.start && ta.selectionEnd === c.ls + c.end){ e.preventDefault(); stepChord(e.key === 'ArrowUp' ? 1 : -1); }
+});
+['keyup','click','focus','blur'].forEach(ev => $('#eBody').addEventListener(ev, () => setTimeout(updateChordBar, 0)));
+document.addEventListener('selectionchange', () => { if (S.view === 'edit') updateChordBar(); });
+
+$('#pBack').onclick = () => { show('lib'); renderLib(); };
+$('#pEdit').onclick = () => openEditor(S.cur.id);
+$('#eUp').onclick = () => nudgeEdge(16);
+$('#eDown').onclick = () => nudgeEdge(-16);
+$('#pHide').onclick = () => { setBar(false); if (!LS.get('sb.hinted', false)){ LS.set('sb.hinted', true); toast('Tap the middle of the sheet to bring the controls back.'); } };
+$('#showBar').onclick = e => { e.stopPropagation(); setBar(true); };
+$('#tUp').onclick = () => bump('semis', p => { p.semis = p.semis + 1 > 6 ? -5 : p.semis + 1; });
+$('#tDown').onclick = () => bump('semis', p => { p.semis = p.semis - 1 < -5 ? 6 : p.semis - 1; });
+$('#fUp').onclick = () => bump('size', p => { p.size = Math.min(60, Math.round((p.size || S.fit?.size || 16) + 1)); });
+$('#fDown').onclick = () => bump('size', p => { p.size = Math.max(9, Math.round((p.size || S.fit?.size || 16) - 1)); });
+$('#fFit').onclick = () => bump('size', p => { p.size = 0; });
+$('#pgPrev').onclick = e => { e.stopPropagation(); go(S.page - 1); };
+$('#pgNext').onclick = e => { e.stopPropagation(); go(S.page + 1); };
+$('#sheet').addEventListener('click', e => {
+  if (e.target.closest('button')) return;
+  if (swiped){ swiped = false; return; }
+  const r = $('#sheet').getBoundingClientRect(); const x = (e.clientX - r.left) / r.width;
+  if (S.pages > 1 && x < 0.3) go(S.page - 1);
+  else if (S.pages > 1 && x > 0.7) go(S.page + 1);
+  else setBar($('#playerView').classList.contains('nobar'));
+});
+let tx = null, ty = null, swiped = false;
+$('#sheet').addEventListener('touchstart', e => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; swiped = false; }, { passive: true });
+$('#sheet').addEventListener('touchend', e => {
+  if (tx == null) return; const t = e.changedTouches[0]; const dx = t.clientX - tx, dy = t.clientY - ty; tx = null;
+  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){ swiped = true; go(S.page + (dx < 0 ? 1 : -1)); }
+}, { passive: true });
+document.addEventListener('keydown', e => {
+  if (S.view !== 'player' || e.target.closest('input,textarea,select')) return;
+  if (['ArrowRight','ArrowDown','PageDown',' ','Enter'].includes(e.key)){ e.preventDefault(); go(S.page + 1); }
+  else if (['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(e.key)){ e.preventDefault(); go(S.page - 1); }
+  else if (e.key === 'Escape'){ show('lib'); renderLib(); }
+});
+if (window.visualViewport){
+  const unshift = () => { if (S.view === 'player' && (window.scrollY || visualViewport.offsetTop)) window.scrollTo(0, 0); };
+  visualViewport.addEventListener('resize', unshift); visualViewport.addEventListener('scroll', unshift);
+}
+let rzT;
+new ResizeObserver(() => { cancelAnimationFrame(rzT); rzT = requestAnimationFrame(layout); }).observe($('#sheet'));
+new ResizeObserver(() => schedulePv()).observe($('#pvBox'));
+$('#pvBox').addEventListener('click', () => $('#ePlay').click());
+
+/* measure mono character width ratio once the font is in */
+function measure(){
+  try {
+    const m = $('#measure'); const sp = document.createElement('span');
+    sp.style.cssText = 'font-family:var(--mono);font-size:100px;font-weight:700;white-space:pre';
+    sp.textContent = '0'.repeat(50); m.appendChild(sp);
+    const w = sp.getBoundingClientRect().width / 50 / 100; sp.remove();
+    if (w > 0.3 && w < 0.9) S.CW = w * 1.03;
+  } catch {}
+}
+document.fonts && document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', () => { measure(); if (S.view === 'player' && S.cur) renderPlayer(); });
+measure();
+(document.fonts && document.fonts.ready || Promise.resolve()).then(() => { measure(); if (S.view === 'player' && S.cur) renderPlayer(); });
+
+renderLib();
+setSync(false);
+$('#lSync span').textContent = 'Checking storage…';
+initServices();
+})();
+</script>
+
+</body></html>
